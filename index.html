@@ -1,0 +1,1061 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>RATR</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+html,body{width:100%;height:100%;overflow:hidden;background:#2563EB;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;}
+.app{position:relative;width:100%;height:100%;overflow:hidden;}
+
+@keyframes pulse{0%,100%{opacity:0;}50%{opacity:0.7;}}
+
+/* ── All screens absolutely stacked ── */
+.screen{
+  position:absolute;inset:0;
+  display:flex;flex-direction:column;align-items:center;
+  background:#2563EB;
+}
+
+/* ── INTRO ── */
+#screen-intro{justify-content:center;z-index:4;transition:opacity 500ms ease;pointer-events:auto;}
+.intro-inner{display:flex;flex-direction:column;align-items:center;text-align:center;gap:4px;}
+.welcome{color:white;font-size:14px;font-weight:400;letter-spacing:0.4px;}
+.ratr-logo{color:white;font-size:72px;font-weight:700;line-height:0.95;font-family:"Courier New",monospace;}
+.tap{margin-top:10px;color:white;font-size:13px;font-weight:300;animation:pulse 2.88s infinite ease-in-out;cursor:pointer;}
+
+/* ── MOVIE ── */
+#screen-movie{
+  justify-content:center;
+  z-index:3;
+  transform:translateY(0%);
+  will-change:transform,border-radius;
+  border-radius:0;
+  background:rgba(9,38,110,0.30);
+  backdrop-filter:blur(18px) brightness(0.75);
+  -webkit-backdrop-filter:blur(18px) brightness(0.75);
+}
+
+/* ── CALC ── */
+#screen-calc{
+  justify-content:flex-start;
+  overflow-y:auto;-webkit-overflow-scrolling:touch;
+  z-index:2;
+}
+
+/* ── SCORE ── */
+#screen-score{
+  justify-content:center;overflow-y:auto;
+  z-index:5;
+  transform:translateY(100%);
+  will-change:transform,border-radius;
+  border-radius:0;
+}
+
+#slide-scrim{
+  position:absolute;inset:0;z-index:1;
+  pointer-events:none;
+  background:rgba(0,0,0,0);
+  backdrop-filter:blur(0px) brightness(1);
+  -webkit-backdrop-filter:blur(0px) brightness(1);
+}
+
+/* ── Movie screen contents ── */
+.movie-inner{display:flex;flex-direction:column;align-items:center;text-align:center;width:100%;padding:24px;gap:24px;color:white;}
+.movie-prompt{font-size:13px;opacity:0.9;font-style:italic;}
+.movie-input{
+  width:70vw;max-width:420px;height:48px;padding:0 14px;
+  background:transparent;border:2px solid white;border-radius:14px;
+  outline:none;color:white;font-size:15px;caret-color:white;
+  font-family:"Courier New",monospace;letter-spacing:0.5px;text-align:center;
+}
+.movie-input::placeholder{color:rgba(255,255,255,0.4);font-family:"Courier New",monospace;}
+
+/* ── Topbar ── */
+.calc-inner{width:100%;max-width:520px;padding:0 0 100px;color:white;}
+.topbar{
+  position:sticky;top:0;z-index:10;background:#2563EB;
+  display:flex;align-items:center;justify-content:space-between;
+  padding:16px 20px 14px;
+  border-bottom:1px solid rgba(255,255,255,0.12);
+}
+.topbar-logo{font-family:"Courier New",monospace;font-size:18px;font-weight:700;color:white;letter-spacing:1px;}
+.topbar-title{
+  font-size:10px;font-weight:300;color:rgba(255,255,255,0.75);
+  font-family:"Courier New",monospace;letter-spacing:0.8px;
+  text-transform:uppercase;text-align:right;max-width:58%;line-height:1.4;
+}
+
+/* ── Sections ── */
+.section{padding:0 20px;margin-bottom:4px;}
+.section-header{
+  padding:22px 0 10px;
+  font-size:13px;letter-spacing:2px;text-transform:uppercase;
+  color:white;font-weight:700;text-align:center;
+}
+.section-divider{height:1px;background:rgba(255,255,255,0.08);margin:0 20px;}
+
+/* ── Rating rows ── */
+.rating-row{
+  padding:14px 0;
+  border-bottom:1px solid rgba(255,255,255,0.08);
+}
+.rating-row:last-child{border-bottom:none;}
+.rating-row-top{display:flex;align-items:center;justify-content:space-between;}
+.row-info{flex:1;min-width:0;padding-right:12px;}
+.row-name{font-size:14px;color:white;font-weight:600;line-height:1.2;}
+.row-desc{
+  font-size:10px;color:rgba(255,255,255,0.45);
+  font-style:italic;margin-top:3px;line-height:1.4;
+  text-align:left;
+}
+.row-quip{
+  font-size:11px;color:rgba(255,255,255,0.5);
+  font-family:"Courier New",monospace;
+  margin-top:8px;line-height:1.5;
+  text-align:center;width:100%;
+}
+
+/* ── Stars ── */
+.stars-row{display:flex;align-items:center;gap:6px;user-select:none;-webkit-user-select:none;flex-shrink:0;}
+.star{
+  position:relative;width:28px;height:28px;font-size:28px;line-height:1;
+  cursor:pointer;color:transparent;-webkit-text-stroke:1.8px white;
+}
+.star::after{content:'';position:absolute;inset:-6px;}
+.star-fill{
+  position:absolute;inset:0;width:0%;overflow:hidden;
+  color:white;-webkit-text-stroke:0px transparent;
+  transition:width 80ms ease;white-space:nowrap;
+}
+.star-fill::before{content:"★";}
+.star-val{
+  font-family:"Courier New",monospace;font-size:11px;font-weight:400;
+  color:rgba(255,255,255,0.5);margin-left:2px;min-width:24px;
+}
+
+/* ── Music buttons ── */
+.music-grid{display:flex;flex-direction:column;gap:8px;padding:4px 0 16px;}
+.music-btn{
+  background:transparent;border:1.5px solid rgba(255,255,255,0.45);
+  border-radius:14px;padding:13px 16px;
+  cursor:pointer;width:100%;
+  display:flex;flex-direction:row;align-items:center;justify-content:space-between;
+  font-family:inherit;
+  transition:background 140ms ease,border-color 140ms ease;
+}
+.music-btn:not(.selected):hover{background:white;border-color:white;}
+.music-btn:not(.selected):hover .music-label,.music-btn:not(.selected):hover .music-desc{color:#2563EB;}
+.music-btn.selected{background:white;border-color:white;}
+.music-btn.selected .music-label,.music-btn.selected .music-desc{color:#2563EB;}
+.music-label{font-size:13px;font-weight:700;color:white;letter-spacing:0.3px;flex-shrink:0;}
+.music-desc{font-size:10px;color:rgba(255,255,255,0.5);line-height:1.3;text-align:right;padding-left:12px;}
+
+/* ── Sliders ── */
+.slider-section{padding:0 20px;}
+.slider-row{padding:14px 0;border-bottom:1px solid rgba(255,255,255,0.08);}
+.slider-row:last-child{border-bottom:none;}
+.slider-header{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px;}
+.sl-name{font-size:14px;color:white;font-weight:600;}
+.sl-quip{font-size:12px;color:rgba(255,255,255,0.5);font-style:italic;margin-bottom:12px;line-height:1.5;}
+.sl-val{
+  font-size:11px;font-weight:400;color:rgba(255,255,255,0.6);
+  font-family:"Courier New",monospace;cursor:pointer;
+  padding:2px 4px;border-radius:4px;
+  transition:color 120ms,background 120ms;user-select:none;
+}
+.sl-val:hover{color:white;background:rgba(255,255,255,0.1);}
+
+.slider-track-wrap{position:relative;height:24px;display:flex;align-items:center;}
+.slider-line{position:absolute;left:0;right:0;height:2.25px;background:white;border-radius:2px;}
+.slider-center-tick{
+  position:absolute;left:50%;transform:translateX(-50%);
+  width:2.25px;height:11px;background:white;border-radius:1px;
+}
+input.slider-input{
+  position:relative;z-index:2;width:100%;height:24px;
+  -webkit-appearance:none;appearance:none;
+  background:transparent;cursor:pointer;outline:none;margin:0;
+}
+input.slider-input::-webkit-slider-thumb{
+  -webkit-appearance:none;
+  width:36px;height:20px;border-radius:999px;
+  background:radial-gradient(circle 4.2px at 50% 50%, #2563EB 100%, transparent 100%), white;
+  transition:transform 100ms ease;
+}
+input.slider-input::-webkit-slider-thumb:active{transform:scale(1.08);}
+input.slider-input::-moz-range-thumb{
+  width:36px;height:20px;border-radius:999px;border:none;
+  background:radial-gradient(circle 4.2px at 50% 50%, #2563EB 100%, transparent 100%), white;
+}
+input.slider-input::-webkit-slider-runnable-track{background:transparent;}
+input.slider-input::-moz-range-track{background:transparent;height:0;}
+
+/* ── Number overlay ── */
+#num-overlay{
+  position:fixed;inset:0;z-index:200;
+  display:none;align-items:center;justify-content:center;
+  backdrop-filter:blur(6px) brightness(0.72);
+  -webkit-backdrop-filter:blur(6px) brightness(0.72);
+}
+#num-overlay.active{display:flex;}
+#num-input-wrap{
+  background:rgba(255,255,255,0.12);border:1.5px solid rgba(255,255,255,0.5);
+  border-radius:18px;padding:20px 28px;
+  display:flex;flex-direction:column;align-items:center;gap:10px;
+}
+#num-label{font-size:10px;letter-spacing:3px;text-transform:uppercase;color:rgba(255,255,255,0.6);font-family:"Courier New",monospace;}
+#num-input{
+  background:transparent;border:none;outline:none;
+  color:white;font-size:36px;font-weight:700;font-family:"Courier New",monospace;
+  width:80px;text-align:center;caret-color:white;
+}
+#num-hint{font-size:10px;color:rgba(255,255,255,0.4);font-style:italic;}
+
+/* ── Buttons ── */
+.nav-wrap{display:flex;justify-content:center;gap:8px;padding:24px 20px 0;}
+.btn{
+  height:38px;border-radius:14px;font-size:12px;font-family:inherit;
+  cursor:pointer;transition:transform 120ms ease;
+  padding:0 22px;font-weight:200;letter-spacing:0.6px;
+}
+.btn:active{transform:scale(0.97);}
+.btn-ghost{background:transparent;border:2px solid white;color:white;}
+.btn-solid{background:white;border:2px solid white;color:#2563EB;padding:0 28px;}
+
+/* ── Score screen ── */
+.score-inner{
+  display:flex;flex-direction:column;align-items:center;
+  text-align:center;padding:24px;gap:0;width:100%;max-width:420px;
+}
+.score-film-name{
+  font-size:10px;color:rgba(255,255,255,0.75);margin-bottom:20px;
+  font-family:"Courier New",monospace;letter-spacing:1.5px;
+  text-transform:uppercase;font-weight:300;
+}
+.score-card{
+  background:white;border-radius:24px;padding:36px 40px 32px;width:100%;
+  display:flex;flex-direction:column;align-items:center;gap:8px;
+  position:relative;overflow:visible;
+}
+@keyframes cardGlowPulse{
+  0%,100%{box-shadow:var(--glow-min);}
+  50%{box-shadow:var(--glow-max);}
+}
+.score-number{
+  font-size:80px;font-weight:700;font-style:italic;line-height:1;
+  letter-spacing:-3px;font-family:"Courier New",monospace;transition:color 0.4s;
+  position:relative;z-index:1;
+}
+.score-label-txt{
+  font-size:10px;letter-spacing:4px;text-transform:uppercase;
+  font-weight:300;margin-top:4px;transition:color 0.4s;
+}
+.result-stars-row{display:flex;align-items:center;gap:5px;margin-top:10px;}
+.result-star{position:relative;font-size:20px;line-height:1;cursor:default;color:transparent;}
+.result-star-fill{position:absolute;inset:0;width:0%;overflow:hidden;white-space:nowrap;}
+.result-star-fill::before{content:"★";}
+.score-scale{
+  display:flex;justify-content:center;
+  margin-top:16px;border-top:1px solid rgba(0,0,0,0.07);padding-top:14px;width:100%;
+}
+.scale-item{
+  padding:4px 8px;border-left:1px solid rgba(0,0,0,0.08);
+  text-align:center;font-size:9px;color:#bbb;transition:color 0.3s;
+}
+.scale-item:first-child{border-left:none;}
+.scale-item .sv{font-weight:700;font-size:11px;}
+.score-actions{display:flex;gap:8px;margin-top:24px;}
+
+/* ── Particles ── */
+.score-particle-layer{
+  position:absolute;inset:0;border-radius:24px;
+  pointer-events:none;overflow:hidden;z-index:2;
+}
+@keyframes particleDrift{
+  0%{transform:translateY(0px) translateX(0px) scale(1);opacity:var(--p-opacity);}
+  100%{transform:translateY(var(--p-dy)) translateX(var(--p-dx)) scale(0.3);opacity:0;}
+}
+.score-particle{
+  position:absolute;border-radius:50%;
+  animation:particleDrift var(--p-dur) var(--p-delay) infinite ease-out;
+}
+</style>
+</head>
+<body>
+<div class="app">
+
+<!-- INTRO -->
+<div class="screen" id="screen-intro">
+  <div class="intro-inner">
+    <div class="welcome">welcome to</div>
+    <div class="ratr-logo">ratr</div>
+    <div class="tap">tap or press any key to begin</div>
+  </div>
+</div>
+
+<div id="slide-scrim"></div>
+
+<!-- CALC -->
+<div class="screen" id="screen-calc">
+  <div class="calc-inner">
+    <div class="topbar">
+      <div class="topbar-logo">ratr</div>
+      <div class="topbar-title" id="calc-film-name"></div>
+    </div>
+
+    <div class="section">
+      <div class="section-header">The Craft</div>
+      <div class="rating-row">
+        <div class="rating-row-top">
+          <div class="row-info">
+            <div class="row-name">Screenplay</div>
+            <div class="row-desc">Writing, Structure, Dialogue</div>
+          </div>
+          <div class="stars-row" id="stars-S"></div>
+        </div>
+        <div class="row-quip">Did the words on the page make you feel anything?</div>
+      </div>
+      <div class="rating-row">
+        <div class="rating-row-top">
+          <div class="row-info">
+            <div class="row-name">Direction</div>
+            <div class="row-desc">Vision, Pacing, Editing</div>
+          </div>
+          <div class="stars-row" id="stars-D"></div>
+        </div>
+        <div class="row-quip">Someone had to make all these decisions. Were they good ones?</div>
+      </div>
+      <div class="rating-row">
+        <div class="rating-row-top">
+          <div class="row-info">
+            <div class="row-name">Acting</div>
+            <div class="row-desc">Ensemble Performance</div>
+          </div>
+          <div class="stars-row" id="stars-A"></div>
+        </div>
+        <div class="row-quip">Did you believe them, or were you watching actors act?</div>
+      </div>
+      <div class="rating-row">
+        <div class="rating-row-top">
+          <div class="row-info">
+            <div class="row-name">Cinematography</div>
+            <div class="row-desc">Visual Craft, Framing</div>
+          </div>
+          <div class="stars-row" id="stars-C"></div>
+        </div>
+        <div class="row-quip">Close your eyes. Can you still see it? That's your answer.</div>
+      </div>
+      <div class="rating-row" style="border-bottom:none;">
+        <div class="rating-row-top">
+          <div class="row-info">
+            <div class="row-name">Resonance</div>
+            <div class="row-desc">Staying Power, Thematic Depth</div>
+          </div>
+          <div class="stars-row" id="stars-Rs"></div>
+        </div>
+        <div class="row-quip">Are you still thinking about it? Will you be next week?</div>
+      </div>
+    </div>
+
+    <div class="section-divider"></div>
+
+    <div class="section">
+      <div class="section-header">The Music &amp; Sound</div>
+      <div class="music-grid" id="music-grid">
+        <button class="music-btn" data-flag="-1">
+          <span class="music-label">Bad</span>
+          <span class="music-desc">Actively made things worse</span>
+        </button>
+        <button class="music-btn" data-flag="0">
+          <span class="music-label">Average</span>
+          <span class="music-desc">It was there. Barely.</span>
+        </button>
+        <button class="music-btn" data-flag="1">
+          <span class="music-label">Good</span>
+          <span class="music-desc">You'll hum it on the way home</span>
+        </button>
+        <button class="music-btn" data-flag="2">
+          <span class="music-label">Transcendent</span>
+          <span class="music-desc">The film needed it to exist</span>
+        </button>
+      </div>
+    </div>
+
+    <div class="section-divider"></div>
+
+    <div class="section">
+      <div class="section-header">The Enjoyability</div>
+      <div class="rating-row" style="border-bottom:none;">
+        <div class="rating-row-top">
+          <div class="row-info">
+            <div class="row-name">Your Gut Reaction</div>
+            <div class="row-desc">Pure, Unfiltered Feeling</div>
+          </div>
+          <div class="stars-row" id="stars-J"></div>
+        </div>
+        <div class="row-quip">Forget the artistry — Did you have fun?</div>
+      </div>
+    </div>
+
+    <div class="section-divider"></div>
+
+    <div class="section">
+      <div class="section-header">The Recommendations</div>
+    </div>
+    <div class="slider-section">
+      <div class="slider-row">
+        <div class="slider-header">
+          <span class="sl-name">General Audience Appeal</span>
+          <span class="sl-val" id="val-P" data-key="P">50</span>
+        </div>
+        <div class="sl-quip">Would your most basic friend love this, hate it, or fall asleep?</div>
+        <div class="slider-track-wrap">
+          <div class="slider-line"></div>
+          <div class="slider-center-tick"></div>
+          <input type="range" class="slider-input" min="0" max="100" step="1" value="50" id="slider-P" data-key="P"/>
+        </div>
+      </div>
+      <div class="slider-row">
+        <div class="slider-header">
+          <span class="sl-name">Family Accessibility</span>
+          <span class="sl-val" id="val-K" data-key="K">50</span>
+        </div>
+        <div class="sl-quip">Could grandma watch this without leaving the room?</div>
+        <div class="slider-track-wrap">
+          <div class="slider-line"></div>
+          <div class="slider-center-tick"></div>
+          <input type="range" class="slider-input" min="0" max="100" step="1" value="50" id="slider-K" data-key="K"/>
+        </div>
+      </div>
+      <div class="slider-row" style="border-bottom:none;">
+        <div class="slider-header">
+          <span class="sl-name">Artistic Intentionality</span>
+          <span class="sl-val" id="val-F" data-key="F">50</span>
+        </div>
+        <div class="sl-quip">This one's for the movie nerds, cinephiles, and art-house junkies. You know who you are.</div>
+        <div class="slider-track-wrap">
+          <div class="slider-line"></div>
+          <div class="slider-center-tick"></div>
+          <input type="range" class="slider-input" min="0" max="100" step="1" value="50" id="slider-F" data-key="F"/>
+        </div>
+      </div>
+    </div>
+
+    <div class="nav-wrap">
+      <button class="btn btn-ghost" id="btn-calc-back">Back</button>
+      <button class="btn btn-solid" id="btn-calc-submit">Submit</button>
+    </div>
+  </div>
+</div>
+
+<!-- MOVIE -->
+<div class="screen" id="screen-movie">
+  <div class="movie-inner">
+    <div style="font-size:14px;font-weight:400;color:white;letter-spacing:0.4px;">LET'S GET STARTED!</div>
+    <div class="movie-prompt">what movie did you watch?</div>
+    <input id="movieInput" class="movie-input" type="text" autocomplete="off" placeholder="film title…"/>
+    <div style="display:flex;gap:8px;">
+      <button class="btn btn-ghost" id="btn-movie-back">Back</button>
+      <button class="btn btn-solid" id="btn-movie-next">Next</button>
+    </div>
+  </div>
+</div>
+
+<!-- SCORE -->
+<div class="screen" id="screen-score">
+  <div class="score-inner">
+    <div class="score-film-name" id="score-film-label"></div>
+    <div class="score-card" id="score-card">
+      <div class="score-particle-layer" id="score-particle-layer"></div>
+      <div class="score-number" id="score-number">—</div>
+      <div class="score-label-txt" id="score-label-txt"></div>
+      <div class="result-stars-row" id="result-stars-row"></div>
+      <div class="score-scale" id="score-scale">
+        <div class="scale-item" data-v="0"><div class="sv">0</div><div>poor</div></div>
+        <div class="scale-item" data-v="1"><div class="sv">1</div><div>bad</div></div>
+        <div class="scale-item" data-v="2"><div class="sv">2</div><div>meh</div></div>
+        <div class="scale-item" data-v="3"><div class="sv">3</div><div>ok</div></div>
+        <div class="scale-item" data-v="4"><div class="sv">4</div><div>great</div></div>
+        <div class="scale-item" data-v="5"><div class="sv">5</div><div>✦</div></div>
+      </div>
+    </div>
+    <div class="score-actions">
+      <button class="btn btn-ghost" id="btn-score-edit">Edit Ratings</button>
+      <button class="btn btn-solid" id="btn-score-again">Rate Another</button>
+    </div>
+  </div>
+</div>
+
+<!-- NUMBER OVERLAY -->
+<div id="num-overlay">
+  <div id="num-input-wrap">
+    <div id="num-label">enter value</div>
+    <input id="num-input" type="number" min="0" max="100" inputmode="numeric" autocomplete="off"/>
+    <div id="num-hint">press enter to confirm</div>
+  </div>
+</div>
+
+</div>
+<script>
+"use strict";
+
+/* ─── HAPTIC ─── */
+function haptic(pat){ if(navigator.vibrate) navigator.vibrate(pat||10); }
+
+/* ─────────────────────────────────────────────
+   SPRING PHYSICS ENGINE
+───────────────────────────────────────────── */
+function springPhysics(opts){
+  var stiffness = opts.stiffness || 280;
+  var damping   = opts.damping   || 28;
+  var mass      = opts.mass      || 1;
+  var pos  = opts.from;
+  var vel  = opts.vel || 0;
+  var target = opts.to;
+  var el   = opts.el;
+  var raf  = null;
+  var last = null;
+
+  function step(now){
+    if(last===null){last=now;}
+    var dt = Math.min((now-last)/1000, 0.064);
+    last = now;
+    var x  = pos - target;
+    var acc = (-stiffness*x - damping*vel) / mass;
+    vel += acc * dt;
+    pos += vel * dt;
+    el.style.transform = "translateY("+pos+"%)";
+    if(opts.roundCorners){
+      var progress = 1 - Math.abs(pos - target) / Math.abs(opts.from - target);
+      var r = Math.round(Math.max(0, 28*(1-progress)));
+      el.style.borderRadius = r+"px "+r+"px 0 0";
+    }
+    if(opts.scrimEl){
+      var p = Math.max(0,Math.min(1, 1 - Math.abs(pos-target)/Math.abs(opts.from-target)));
+      if(opts.scrimDir==="in"){
+        var blur  = (p*5).toFixed(1);
+        var brite = (1 - p*0.25).toFixed(3);
+        opts.scrimEl.style.backdropFilter = "blur("+blur+"px) brightness("+brite+")";
+        opts.scrimEl.style.webkitBackdropFilter = "blur("+blur+"px) brightness("+brite+")";
+        opts.scrimEl.style.background = "rgba(0,0,0,"+(p*0.2).toFixed(3)+")";
+      } else {
+        var blur2  = ((1-p)*5).toFixed(1);
+        var brite2 = (0.75 + p*0.25).toFixed(3);
+        opts.scrimEl.style.backdropFilter = "blur("+blur2+"px) brightness("+brite2+")";
+        opts.scrimEl.style.webkitBackdropFilter = "blur("+blur2+"px) brightness("+brite2+")";
+        opts.scrimEl.style.background = "rgba(0,0,0,"+((1-p)*0.2).toFixed(3)+")";
+      }
+    }
+    if(Math.abs(pos-target)<0.01 && Math.abs(vel)<0.05){
+      pos = target;
+      el.style.transform = "translateY("+target+"%)";
+      if(opts.roundCorners) el.style.borderRadius = "0";
+      if(opts.scrimEl && opts.scrimDir==="out"){
+        opts.scrimEl.style.backdropFilter = "";
+        opts.scrimEl.style.webkitBackdropFilter = "";
+        opts.scrimEl.style.background = "rgba(0,0,0,0)";
+      }
+      if(opts.onDone) opts.onDone();
+      return;
+    }
+    raf = requestAnimationFrame(step);
+  }
+  raf = requestAnimationFrame(step);
+  return function cancel(){ if(raf) cancelAnimationFrame(raf); };
+}
+
+/* ─────────────────────────────────────────────
+   STATE
+───────────────────────────────────────────── */
+var STAR_KEYS = ["S","D","A","C","Rs","J"];
+var ratings={}, lastTap={}, mFlag=null, sliders={P:50,K:50,F:50};
+var movieTitle="", committedTitle="";
+STAR_KEYS.forEach(function(k){ratings[k]=0; lastTap[k]=null;});
+
+/* ─────────────────────────────────────────────
+   ELEMENTS
+───────────────────────────────────────────── */
+var introEl  = document.getElementById("screen-intro");
+var movieEl  = document.getElementById("screen-movie");
+var calcEl   = document.getElementById("screen-calc");
+var scoreEl  = document.getElementById("screen-score");
+var scrimEl  = document.getElementById("slide-scrim");
+
+/* Movie sits at 0% (visible) but intro covers it on top.
+   Calc is behind movie. Score starts off the bottom. */
+movieEl.style.transform  = "translateY(0%)";
+scoreEl.style.transform  = "translateY(100%)";
+
+/* ─────────────────────────────────────────────
+   SCREEN TRANSITIONS
+───────────────────────────────────────────── */
+var currentCancel = null;
+function runSpring(opts){
+  if(currentCancel) currentCancel();
+  currentCancel = springPhysics(opts);
+}
+
+/* Intro fades out to reveal the movie screen underneath */
+function showMovie(){
+  haptic();
+  introEl.style.opacity="0";
+  introEl.style.pointerEvents="none";
+  movieEl.style.pointerEvents="auto";
+  requestAnimationFrame(function(){
+    document.getElementById("movieInput").focus();
+  });
+}
+
+/* Back from movie screen — fade intro back in */
+function hideMovie(){
+  introActive = true;
+  introEl.style.opacity="1";
+  introEl.style.pointerEvents="auto";
+  movieEl.style.pointerEvents="none";
+  /* snap movie back to 0% in case it drifted */
+  movieEl.style.transform="translateY(0%)";
+  movieEl.style.borderRadius="0";
+}
+
+/* Movie slides up, revealing calc underneath */
+function showCalc(){
+  calcEl.scrollTop = 0;
+  runSpring({
+    el: movieEl,
+    from: 0, to: -100,
+    vel: 8,
+    stiffness: 300, damping: 30, mass: 1,
+    roundCorners: true,
+    scrimEl: scrimEl, scrimDir: "in",
+    onDone: function(){
+      movieEl.style.pointerEvents="none";
+    }
+  });
+}
+
+/* Movie springs back down, covering calc again */
+function hideCalc(){
+  movieEl.style.pointerEvents="auto";
+  runSpring({
+    el: movieEl,
+    from: -100, to: 0,
+    stiffness: 280, damping: 32, mass: 1,
+    roundCorners: true,
+    scrimEl: scrimEl, scrimDir: "out"
+  });
+}
+
+function showScore(onDone){
+  scoreEl.style.pointerEvents="auto";
+  runSpring({
+    el: scoreEl,
+    from: 100, to: 0,
+    vel: 8,
+    stiffness: 300, damping: 30, mass: 1,
+    roundCorners: true,
+    onDone: onDone || null
+  });
+}
+
+function hideScore(){
+  runSpring({
+    el: scoreEl,
+    from: 0, to: 100,
+    stiffness: 280, damping: 32, mass: 1,
+    roundCorners: true,
+    onDone: function(){
+      scoreEl.style.pointerEvents="none";
+    }
+  });
+}
+
+/* ─────────────────────────────────────────────
+   STARS
+───────────────────────────────────────────── */
+function drawStars(key){
+  var r=ratings[key];
+  document.querySelectorAll("#stars-"+key+" .star").forEach(function(el,idx){
+    var v=idx+1;
+    el.querySelector(".star-fill").style.width = r>=v?"100%": r===v-0.5?"50%":"0%";
+  });
+  var valEl=document.getElementById("star-val-"+key);
+  if(valEl) valEl.textContent = ratings[key]===0?"—":ratings[key].toFixed(1);
+}
+
+function buildStars(key){
+  var wrap=document.getElementById("stars-"+key);
+  wrap.innerHTML="";
+  for(var i=1;i<=5;i++){
+    (function(v){
+      var star=document.createElement("div");
+      star.className="star";
+      star.innerHTML="<div class='star-fill'></div>★";
+      star.addEventListener("click",function(){
+        haptic();
+        if(lastTap[key]===v){
+          if(ratings[key]===v)          { ratings[key]=v-0.5; }
+          else if(ratings[key]===v-0.5) { ratings[key]=v-1; }
+          else                           { ratings[key]=v; }
+        } else {
+          ratings[key]=v;
+        }
+        lastTap[key]=v;
+        drawStars(key);
+      });
+      wrap.appendChild(star);
+    })(i);
+  }
+  var valSpan=document.createElement("span");
+  valSpan.className="star-val"; valSpan.id="star-val-"+key; valSpan.textContent="—";
+  wrap.appendChild(valSpan);
+  drawStars(key);
+}
+
+/* ─────────────────────────────────────────────
+   MUSIC
+───────────────────────────────────────────── */
+(function(){
+  var btns=document.querySelectorAll("#music-grid .music-btn");
+  btns.forEach(function(btn){
+    btn.addEventListener("click",function(){
+      haptic();
+      btns.forEach(function(b){b.classList.remove("selected");});
+      btn.classList.add("selected");
+      mFlag=parseInt(btn.getAttribute("data-flag"));
+    });
+  });
+})();
+
+/* ─────────────────────────────────────────────
+   SLIDERS
+───────────────────────────────────────────── */
+var SNAP_ZONE=4, sliderPrev={P:50,K:50,F:50};
+document.querySelectorAll(".slider-input").forEach(function(sl){
+  var k=sl.getAttribute("data-key");
+  sl.addEventListener("input",function(){
+    var raw=parseInt(sl.value), prev=sliderPrev[k], speed=Math.abs(raw-prev);
+    sliderPrev[k]=raw;
+    var val=(speed<=2&&Math.abs(raw-50)<=SNAP_ZONE)?50:raw;
+    if(val===50&&raw!==50) sl.value=50;
+    sliders[k]=val;
+    document.getElementById("val-"+k).textContent=val;
+  });
+});
+
+/* ─────────────────────────────────────────────
+   NUMBER OVERLAY
+───────────────────────────────────────────── */
+var overlay=document.getElementById("num-overlay");
+var numInput=document.getElementById("num-input");
+var numLabel=document.getElementById("num-label");
+var activeSliderKey=null;
+var SLIDER_LABELS={P:"General Audience",K:"Family Accessibility",F:"Artistic Intent"};
+
+document.querySelectorAll(".sl-val").forEach(function(el){
+  el.addEventListener("click",function(){
+    activeSliderKey=el.getAttribute("data-key");
+    numLabel.textContent=SLIDER_LABELS[activeSliderKey]||"Enter Value";
+    numInput.value=sliders[activeSliderKey];
+    overlay.classList.add("active");
+    setTimeout(function(){numInput.focus();numInput.select();},80);
+  });
+});
+numInput.addEventListener("keydown",function(e){
+  if(e.key==="Enter") confirmOverlay();
+  if(e.key==="Escape") closeOverlay();
+});
+overlay.addEventListener("click",function(e){ if(e.target===overlay) closeOverlay(); });
+function confirmOverlay(){
+  var val=Math.max(0,Math.min(100,parseInt(numInput.value)||0));
+  if(activeSliderKey){
+    sliders[activeSliderKey]=val;
+    document.getElementById("val-"+activeSliderKey).textContent=val;
+    document.getElementById("slider-"+activeSliderKey).value=val;
+  }
+  closeOverlay();
+}
+function closeOverlay(){ overlay.classList.remove("active"); activeSliderKey=null; }
+
+/* ─────────────────────────────────────────────
+   SCORE FORMULA
+───────────────────────────────────────────── */
+function calcScore(){
+  var S=ratings.S,D=ratings.D,A=ratings.A,C=ratings.C,Rs=ratings.Rs,J=ratings.J;
+  var M=mFlag===null?0:mFlag;
+  var craft=0.25*(S-2.5)+0.25*(D-2.5)+0.20*(A-2.5)+0.18*(C-2.5)+0.12*(Rs-2.5);
+  var wm=M===2?0.18:M===1?0.07:M===0?0:0.10;
+  var craftFinal=craft+M*wm;
+  var Jstar=J-2.5;
+  var Ps=sliders.P/20, Ks=sliders.K/20, Fs=sliders.F/20;
+  var Kp=Ks<=3?1.5+0.5*Ks:3+0.4*(Ks-3);
+  var Fp=0.90*Fs;
+  var R=(Ps+0.6*Kp+1.4*Fp)/3;
+  var Rstar=R-2.5;
+  var delta=Math.max(Ps,Ks,Fs)-Math.min(Ps,Ks,Fs);
+  var B=1;
+  if(Ps>3&&Ks>3&&Fs>3){ B=1+0.12*(1-delta/5); }
+  else if(Ps<2&&Ks<2&&Fs<2){ B=1-0.12*(1-delta/5); }
+  var WRp=0.25*B, T=0.50+0.28+WRp;
+  var WC=0.50/T, WJ=0.28/T, WR=WRp/T;
+  return Math.max(0,Math.min(5, 2.5+WC*craftFinal+WJ*Jstar+WR*Rstar));
+}
+
+function scoreLabel(s){
+  if(s>=4.75) return"Transcendent";
+  if(s>=4.25) return"Masterpiece";
+  if(s>=3.75) return"Exceptional";
+  if(s>=3.25) return"Strong";
+  if(s>=2.75) return"Mildly Good";
+  if(s>=2.25) return"Average";
+  if(s>=1.75) return"Below Average";
+  return"Poor";
+}
+
+function scoreColor(s){
+  var r,g,b;
+  /* Red zone: 0–1.5, peak fire-truck red at 1.5 */
+  /* Orange/gold midpoint: ~2.5 */
+  /* Green zone: peaks at 4.0, holds through 5 */
+  if(s<=1.5){
+    /* deep red → fire truck red */
+    var t=s/1.5;
+    r=Math.round(180+(220-180)*t); g=Math.round(20+(38-20)*t); b=Math.round(20+(38-20)*t);
+  } else if(s<=2.5){
+    /* fire truck red → orange-gold */
+    var t=(s-1.5)/1.0;
+    r=Math.round(220+(218-220)*t); g=Math.round(38+(165-38)*t); b=Math.round(38+(32-38)*t);
+  } else if(s<=4.0){
+    /* orange-gold → peak green */
+    var t=(s-2.5)/1.5;
+    r=Math.round(218+(56-218)*t); g=Math.round(165+(187-165)*t); b=Math.round(32+(23-32)*t);
+  } else {
+    /* peak green holds, slight teal shift toward 5 */
+    var t=(s-4.0)/1.0;
+    r=Math.round(56+(40-56)*t); g=Math.round(187+(210-187)*t); b=Math.round(23+(120-23)*t);
+  }
+  return"rgb("+r+","+g+","+b+")";
+}
+
+function clearScoreEffects(){
+  var layer=document.getElementById("score-particle-layer");
+  if(layer) layer.innerHTML="";
+  var card=document.getElementById("score-card");
+  if(card){
+    card.style.animation="";
+    card.style.boxShadow="";
+    card.style.removeProperty("--glow-min");
+    card.style.removeProperty("--glow-max");
+  }
+}
+
+function applyScoreEffects(score, color){
+  var card=document.getElementById("score-card");
+  var layer=document.getElementById("score-particle-layer");
+  layer.innerHTML="";
+
+  var cm=color.match(/rgb\((\d+),(\d+),(\d+)\)/);
+  if(!cm) return;
+  var R=cm[1],G=cm[2],B=cm[3];
+
+  /* ── HIGH SCORE: pulsing glow on card + rising bubbles (3.0+) ── */
+  if(score>=3.0){
+    var intensity=Math.min(1,(score-3.0)/2.0);
+    var minBlur=Math.round(6+intensity*14);
+    var minSpread=Math.round(1+intensity*4);
+    var minAlpha=(0.12+intensity*0.18).toFixed(2);
+    var maxBlur=Math.round(18+intensity*36);
+    var maxSpread=Math.round(3+intensity*10);
+    var maxAlpha=(0.28+intensity*0.38).toFixed(2);
+    var glowMin="0 0 "+minBlur+"px "+minSpread+"px rgba("+R+","+G+","+B+","+minAlpha+")";
+    var glowMax="0 0 "+maxBlur+"px "+maxSpread+"px rgba("+R+","+G+","+B+","+maxAlpha+")";
+    var dur=(3.2-intensity*0.8).toFixed(1);
+    card.style.setProperty("--glow-min",glowMin);
+    card.style.setProperty("--glow-max",glowMax);
+    card.style.animation="cardGlowPulse "+dur+"s infinite ease-in-out";
+  }
+
+  if(score>=3.5){
+    var count=Math.round((score-3.5)/1.5*10)+3;
+    for(var i=0;i<count;i++){
+      var p=document.createElement("div");
+      p.className="score-particle";
+      var size=Math.round(3+Math.random()*5);
+      var startX=Math.round(10+Math.random()*280);
+      var startY=Math.round(100+Math.random()*120);
+      var dx=Math.round((Math.random()-0.5)*50);
+      var dy=Math.round(-60-Math.random()*100);
+      var dur=(2.4+Math.random()*2.8).toFixed(1);
+      var delay=(Math.random()*4).toFixed(2);
+      var opacity=(0.3+Math.random()*0.45).toFixed(2);
+      p.style.cssText="width:"+size+"px;height:"+size+"px;background:rgba("+R+","+G+","+B+","+opacity+");left:"+startX+"px;top:"+startY+"px;--p-dy:"+dy+"px;--p-dx:"+dx+"px;--p-dur:"+dur+"s;--p-delay:"+delay+"s;--p-opacity:"+opacity+";";
+      layer.appendChild(p);
+    }
+  }
+
+  /* ── LOW SCORE: urgent red glow + falling embers (2.5 and below) ── */
+  if(score<=2.5){
+    var intensity=Math.min(1,(2.5-score)/2.5);
+    /* Glow pulses faster and angrier at lower scores */
+    var minBlur=Math.round(8+intensity*16);
+    var minSpread=Math.round(2+intensity*5);
+    var minAlpha=(0.15+intensity*0.2).toFixed(2);
+    var maxBlur=Math.round(22+intensity*30);
+    var maxSpread=Math.round(5+intensity*12);
+    var maxAlpha=(0.35+intensity*0.35).toFixed(2);
+    var glowMin="0 0 "+minBlur+"px "+minSpread+"px rgba("+R+","+G+","+B+","+minAlpha+")";
+    var glowMax="0 0 "+maxBlur+"px "+maxSpread+"px rgba("+R+","+G+","+B+","+maxAlpha+")";
+    /* faster pulse at lower scores — feels like an alarm */
+    var dur=(2.8-intensity*1.4).toFixed(1);
+    card.style.setProperty("--glow-min",glowMin);
+    card.style.setProperty("--glow-max",glowMax);
+    card.style.animation="cardGlowPulse "+dur+"s infinite ease-in-out";
+
+    /* Falling particles — same as bubbles but drift downward */
+    var emberCount=Math.round(intensity*12)+3;
+    for(var j=0;j<emberCount;j++){
+      var e=document.createElement("div");
+      e.className="score-particle";
+      var size=Math.round(3+Math.random()*5);
+      var startX=Math.round(10+Math.random()*280);
+      var startY=Math.round(Math.random()*80);
+      var dx=Math.round((Math.random()-0.5)*50);
+      var dy=Math.round(60+Math.random()*100);
+      var dur=(2.4+Math.random()*2.8).toFixed(1);
+      var delay=(Math.random()*4).toFixed(2);
+      var opacity=(0.3+Math.random()*0.45).toFixed(2);
+      var useOrange=Math.random()>0.5;
+      var eColor=useOrange?"rgba(240,80,20,"+opacity+")":"rgba("+R+","+G+","+B+","+opacity+")";
+      e.style.cssText="width:"+size+"px;height:"+size+"px;background:"+eColor+";left:"+startX+"px;top:"+startY+"px;--p-dy:"+dy+"px;--p-dx:"+dx+"px;--p-dur:"+dur+"s;--p-delay:"+delay+"s;--p-opacity:"+opacity+";";
+      layer.appendChild(e);
+    }
+  }
+}
+
+function renderResultStars(score,color){
+  var wrap=document.getElementById("result-stars-row");
+  wrap.innerHTML="";
+  for(var i=1;i<=5;i++){
+    var star=document.createElement("div");
+    star.className="result-star";
+    star.style.cssText="color:transparent;-webkit-text-stroke:1.8px "+color+";font-size:20px;line-height:1;position:relative;";
+    star.innerHTML="<div class='result-star-fill' style='color:"+color+";position:absolute;inset:0;overflow:hidden;white-space:nowrap;'></div>★";
+    star.querySelector(".result-star-fill").style.width=score>=i?"100%":score>=i-0.5?"50%":"0%";
+    wrap.appendChild(star);
+  }
+}
+
+function displayScore(){
+  var score=calcScore(), color=scoreColor(score);
+  clearScoreEffects();
+  document.getElementById("score-film-label").textContent="Ratr Score: "+movieTitle.toUpperCase();
+  document.getElementById("score-number").textContent=score.toFixed(2);
+  document.getElementById("score-number").style.color=color;
+  document.getElementById("score-label-txt").textContent=scoreLabel(score);
+  document.getElementById("score-label-txt").style.color=color;
+  renderResultStars(score,color);
+  document.querySelectorAll("#score-scale .scale-item").forEach(function(el){
+    el.style.color=Math.abs(score-parseFloat(el.getAttribute("data-v")))<0.6?color:"#bbb";
+  });
+  showScore(function(){
+    applyScoreEffects(score, color);
+  });
+}
+
+/* ─────────────────────────────────────────────
+   RESET
+───────────────────────────────────────────── */
+function resetAll(){
+  clearScoreEffects();
+  STAR_KEYS.forEach(function(k){ ratings[k]=0; lastTap[k]=null; drawStars(k); });
+  mFlag=null;
+  sliders={P:50,K:50,F:50};
+  document.querySelectorAll("#music-grid .music-btn").forEach(function(b){b.classList.remove("selected");});
+  ["P","K","F"].forEach(function(k){
+    document.getElementById("slider-"+k).value=50;
+    document.getElementById("val-"+k).textContent="50";
+    sliderPrev[k]=50;
+  });
+}
+
+/* ─────────────────────────────────────────────
+   INIT
+───────────────────────────────────────────── */
+STAR_KEYS.forEach(function(k){ buildStars(k); });
+
+/* ─────────────────────────────────────────────
+   WIRING
+───────────────────────────────────────────── */
+
+/* Intro: tap anywhere or press any key to fade out and reveal movie screen */
+introEl.addEventListener("click",function(e){
+  if(e.target.closest("button,input")) return;
+  showMovie();
+});
+
+var introActive = true;
+document.addEventListener("keydown",function(e){
+  if(!introActive) return;
+  if(["Shift","Control","Alt","Meta","Tab","CapsLock","Enter","Escape"].indexOf(e.key)!==-1) return;
+  introActive = false;
+  showMovie();
+  /* Don't preventDefault — let the character land in the input naturally */
+});
+
+var movieInput=document.getElementById("movieInput");
+movieInput.addEventListener("input",function(){ movieTitle=movieInput.value.trim(); });
+movieInput.addEventListener("keydown",function(e){
+  if(e.key==="Enter"&&movieTitle.length>0) document.getElementById("btn-movie-next").click();
+});
+
+document.getElementById("btn-movie-back").addEventListener("click",function(){
+  haptic();
+  hideMovie();
+});
+
+document.getElementById("btn-movie-next").addEventListener("click",function(){
+  haptic();
+  if(!movieTitle) return;
+  if(movieTitle!==committedTitle){ committedTitle=movieTitle; resetAll(); }
+  document.getElementById("calc-film-name").textContent="Ratr Score: "+movieTitle.toUpperCase();
+  showCalc();
+});
+
+document.getElementById("btn-calc-back").addEventListener("click",function(){
+  haptic();
+  hideCalc();
+});
+
+document.getElementById("btn-calc-submit").addEventListener("click",function(){
+  haptic();
+  displayScore();
+});
+
+document.getElementById("btn-score-edit").addEventListener("click",function(){
+  haptic();
+  hideScore();
+});
+
+document.getElementById("btn-score-again").addEventListener("click",function(){
+  haptic();
+  movieTitle=""; committedTitle="";
+  movieInput.value="";
+  document.getElementById("calc-film-name").textContent="";
+  resetAll();
+  hideScore();
+  /* Snap movie back to rest position (visible, covering calc) */
+  movieEl.style.transform="translateY(0%)";
+  movieEl.style.borderRadius="0";
+  movieEl.style.pointerEvents="none";
+  scrimEl.style.backdropFilter="";
+  scrimEl.style.webkitBackdropFilter="";
+  scrimEl.style.background="rgba(0,0,0,0)";
+  /* Fade intro back in */
+  introActive = true;
+  introEl.style.opacity="1";
+  introEl.style.pointerEvents="auto";
+});
+</script>
+</body>
+</html>
