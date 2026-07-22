@@ -35,6 +35,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:#2563EB;font-family:
   background:rgba(9,38,110,0.30);
   backdrop-filter:blur(18px) brightness(0.75);
   -webkit-backdrop-filter:blur(18px) brightness(0.75);
+  overflow:visible;
 }
 
 /* ── CALC ── */
@@ -61,18 +62,39 @@ html,body{width:100%;height:100%;overflow:hidden;background:#2563EB;font-family:
   -webkit-backdrop-filter:blur(0px) brightness(1);
 }
 
-/* ── Movie screen contents ── */
-.movie-inner{display:flex;flex-direction:column;align-items:center;text-align:center;width:100%;padding:24px;gap:24px;color:white;}
-.movie-prompt{font-size:13px;opacity:0.9;font-style:italic;}
+/* ── Movie input autocomplete ── */
+.movie-input-wrap{position:relative;width:70vw;max-width:420px;}
 .movie-input{
-  width:70vw;max-width:420px;height:48px;padding:0 14px;
+  width:100%;height:48px;padding:0 14px;
   background:transparent;border:2px solid white;border-radius:14px;
   outline:none;color:white;font-size:15px;caret-color:white;
   font-family:"Courier New",monospace;letter-spacing:0.5px;text-align:center;
 }
 .movie-input::placeholder{color:rgba(255,255,255,0.4);font-family:"Courier New",monospace;}
+.movie-input.open{border-radius:14px 14px 0 0;border-bottom-color:rgba(255,255,255,0.2);}
+#movie-dropdown{
+  position:absolute;top:calc(100% - 2px);left:0;right:0;
+  background:rgba(15,40,120,0.97);
+  backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
+  border:2px solid white;border-top:none;
+  border-radius:0 0 14px 14px;
+  overflow:hidden;display:none;z-index:20;
+}
+#movie-dropdown.visible{display:block;}
+.dropdown-item{
+  padding:11px 14px;cursor:pointer;
+  display:flex;flex-direction:column;gap:2px;
+  border-bottom:1px solid rgba(255,255,255,0.08);
+  transition:background 100ms ease;
+}
+.dropdown-item:last-child{border-bottom:none;}
+.dropdown-item:hover,.dropdown-item.active{background:rgba(255,255,255,0.12);}
+.dropdown-title{font-size:13px;color:white;font-weight:600;font-family:"Courier New",monospace;}
+.dropdown-year{font-size:10px;color:rgba(255,255,255,0.45);font-style:italic;}
 
-/* ── Topbar ── */
+/* ── Movie screen contents ── */
+.movie-inner{display:flex;flex-direction:column;align-items:center;text-align:center;width:100%;padding:24px;gap:24px;color:white;}
+.movie-prompt{font-size:13px;opacity:0.9;font-style:italic;}
 .calc-inner{width:100%;max-width:520px;padding:0 0 100px;color:white;}
 .topbar{
   position:sticky;top:0;z-index:10;background:#2563EB;
@@ -455,7 +477,10 @@ input.slider-input::-moz-range-track{background:transparent;height:0;}
   <div class="movie-inner">
     <div style="font-size:14px;font-weight:400;color:white;letter-spacing:0.4px;">LET'S GET STARTED!</div>
     <div class="movie-prompt">what movie did you watch?</div>
-    <input id="movieInput" class="movie-input" type="text" autocomplete="off" placeholder="film title…"/>
+    <div style="position:relative;width:70vw;max-width:420px;">
+      <input id="movieInput" class="movie-input" type="text" autocomplete="off" placeholder="film title…" style="width:100%;"/>
+      <div id="movie-dropdown"></div>
+    </div>
     <div style="display:flex;gap:8px;">
       <button class="btn btn-ghost" id="btn-movie-back">Back</button>
       <button class="btn btn-solid" id="btn-movie-next">Next</button>
@@ -1003,10 +1028,107 @@ document.addEventListener("keydown",function(e){
   /* Don't preventDefault — let the character land in the input naturally */
 });
 
+/* ─────────────────────────────────────────────
+   TMDB AUTOCOMPLETE
+───────────────────────────────────────────── */
+var TMDB_KEY="2c3fda753067285a666935259dd205ce";
 var movieInput=document.getElementById("movieInput");
-movieInput.addEventListener("input",function(){ movieTitle=movieInput.value.trim(); });
+var dropdown=document.getElementById("movie-dropdown");
+var tmdbId=null;
+var debounceTimer=null;
+var activeIndex=-1;
+var dropdownItems=[];
+
+function closeDropdown(){
+  dropdown.classList.remove("visible");
+  movieInput.classList.remove("open");
+  activeIndex=-1;
+  dropdownItems=[];
+}
+
+function selectMovie(title, year, id){
+  movieInput.value=title+(year?" ("+year+")":"");
+  movieTitle=movieInput.value.trim();
+  tmdbId=id;
+  closeDropdown();
+}
+
+function renderDropdown(results){
+  dropdown.innerHTML="";
+  if(!results||results.length===0){ closeDropdown(); return; }
+  dropdownItems=[];
+  results.slice(0,6).forEach(function(m,i){
+    var item=document.createElement("div");
+    item.className="dropdown-item";
+    var year=m.release_date?m.release_date.slice(0,4):"";
+    item.innerHTML="<div class='dropdown-title'>"+m.title+"</div>"+(year?"<div class='dropdown-year'>"+year+"</div>":"");
+    item.addEventListener("mousedown",function(e){
+      e.preventDefault();
+      haptic();
+      selectMovie(m.title, year, m.id);
+    });
+    dropdown.appendChild(item);
+    dropdownItems.push({title:m.title, year:year, id:m.id});
+  });
+  dropdown.classList.add("visible");
+  movieInput.classList.add("open");
+  activeIndex=-1;
+}
+
+function searchTMDB(query){
+  if(!query||query.length<2){ closeDropdown(); return; }
+  var url="https://api.themoviedb.org/3/search/movie?api_key="+TMDB_KEY+"&query="+encodeURIComponent(query)+"&include_adult=false&language=en-US&page=1";
+  fetch(url)
+    .then(function(r){
+      if(!r.ok){ throw new Error("TMDB returned status "+r.status); }
+      return r.json();
+    })
+    .then(function(data){
+      console.log("[ratr] TMDB results for '"+query+"':", data.results ? data.results.length : 0);
+      renderDropdown(data.results);
+    })
+    .catch(function(err){
+      console.error("[ratr] TMDB search failed:", err);
+      closeDropdown();
+    });
+}
+
+movieInput.addEventListener("input",function(){
+  movieTitle=movieInput.value.trim();
+  tmdbId=null; /* reset if user edits after selection */
+  clearTimeout(debounceTimer);
+  debounceTimer=setTimeout(function(){ searchTMDB(movieTitle); }, 200);
+});
+
 movieInput.addEventListener("keydown",function(e){
-  if(e.key==="Enter"&&movieTitle.length>0) document.getElementById("btn-movie-next").click();
+  if(e.key==="ArrowDown"){
+    e.preventDefault();
+    activeIndex=Math.min(activeIndex+1, dropdownItems.length-1);
+    Array.from(dropdown.querySelectorAll(".dropdown-item")).forEach(function(el,i){
+      el.classList.toggle("active",i===activeIndex);
+    });
+  } else if(e.key==="ArrowUp"){
+    e.preventDefault();
+    activeIndex=Math.max(activeIndex-1, -1);
+    Array.from(dropdown.querySelectorAll(".dropdown-item")).forEach(function(el,i){
+      el.classList.toggle("active",i===activeIndex);
+    });
+  } else if(e.key==="Enter"){
+    if(activeIndex>=0&&dropdownItems[activeIndex]){
+      haptic();
+      var m=dropdownItems[activeIndex];
+      selectMovie(m.title, m.year, m.id);
+    } else if(movieTitle.length>0){
+      closeDropdown();
+      document.getElementById("btn-movie-next").click();
+    }
+  } else if(e.key==="Escape"){
+    closeDropdown();
+  }
+});
+
+movieInput.addEventListener("blur",function(){
+  setTimeout(closeDropdown, 150);
 });
 
 document.getElementById("btn-movie-back").addEventListener("click",function(){
@@ -1017,6 +1139,7 @@ document.getElementById("btn-movie-back").addEventListener("click",function(){
 document.getElementById("btn-movie-next").addEventListener("click",function(){
   haptic();
   if(!movieTitle) return;
+  closeDropdown();
   if(movieTitle!==committedTitle){ committedTitle=movieTitle; resetAll(); }
   document.getElementById("calc-film-name").textContent="Ratr Score: "+movieTitle.toUpperCase();
   showCalc();
@@ -1039,7 +1162,7 @@ document.getElementById("btn-score-edit").addEventListener("click",function(){
 
 document.getElementById("btn-score-again").addEventListener("click",function(){
   haptic();
-  movieTitle=""; committedTitle="";
+  movieTitle=""; committedTitle=""; tmdbId=null;
   movieInput.value="";
   document.getElementById("calc-film-name").textContent="";
   resetAll();
