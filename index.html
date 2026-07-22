@@ -1031,7 +1031,7 @@ document.addEventListener("keydown",function(e){
 /* ─────────────────────────────────────────────
    TMDB AUTOCOMPLETE
 ───────────────────────────────────────────── */
-var TMDB_KEY="2c3fda753067285a666935259dd205ce";
+var TMDB_TOKEN="eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiIyYzNmZGE3NTMwNjcyODVhNjY2OTM1MjU5ZGQyMDVjZSIsIm5iZiI6MTc4NDc2MDU5MC4xMjEsInN1YiI6IjZhNjE0OTBlOTYwMTE5NzQ5YWQyMjU1NiIsInNjb3BlcyI6WyJhcGlfcmVhZCJdLCJ2ZXJzaW9uIjoxfQ.UfdAe03Fd_DdSLQA6BbJDYwRq8VxSjZs3TmSXfHGFDY";
 var movieInput=document.getElementById("movieInput");
 var dropdown=document.getElementById("movie-dropdown");
 var tmdbId=null;
@@ -1077,8 +1077,13 @@ function renderDropdown(results){
 
 function searchTMDB(query){
   if(!query||query.length<2){ closeDropdown(); return; }
-  var url="https://api.themoviedb.org/3/search/movie?api_key="+TMDB_KEY+"&query="+encodeURIComponent(query)+"&include_adult=false&language=en-US&page=1";
-  fetch(url)
+  var url="https://api.themoviedb.org/3/search/movie?query="+encodeURIComponent(query)+"&include_adult=false&language=en-US&page=1";
+  fetch(url, {
+    headers:{
+      "Authorization":"Bearer "+TMDB_TOKEN,
+      "Content-Type":"application/json"
+    }
+  })
     .then(function(r){
       if(!r.ok){ throw new Error("TMDB returned status "+r.status); }
       return r.json();
