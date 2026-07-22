@@ -107,7 +107,12 @@ html,body{width:100%;height:100%;overflow:hidden;background:#2563EB;font-family:
   font-size:10px;font-weight:300;color:rgba(255,255,255,0.75);
   font-family:"Courier New",monospace;letter-spacing:0.8px;
   text-transform:uppercase;text-align:right;max-width:58%;line-height:1.4;
+  cursor:pointer;
+  border-bottom:1px solid rgba(255,255,255,0.25);
+  padding-bottom:1px;
+  transition:color 150ms ease, border-color 150ms ease;
 }
+.topbar-title:hover{color:white;border-color:rgba(255,255,255,0.7);}
 
 /* ── Sections ── */
 .section{padding:0 20px;margin-bottom:4px;}
@@ -324,7 +329,7 @@ input.slider-input::-moz-range-track{background:transparent;height:0;}
   <div class="calc-inner">
     <div class="topbar">
       <div class="topbar-logo">ratr</div>
-      <div class="topbar-title" id="calc-film-name"></div>
+      <div class="topbar-title" id="calc-film-name" title="tap to change film"></div>
     </div>
 
     <div class="section">
@@ -622,9 +627,13 @@ function runSpring(opts){
   currentCancel = springPhysics(opts);
 }
 
+/* Tracks whether movie screen was opened from calc (title tap) or from intro */
+var fromCalc = false;
+
 /* Intro fades out to reveal the movie screen underneath */
 function showMovie(){
   haptic();
+  fromCalc = false;
   introEl.style.opacity="0";
   introEl.style.pointerEvents="none";
   movieEl.style.pointerEvents="auto";
@@ -633,15 +642,29 @@ function showMovie(){
   });
 }
 
-/* Back from movie screen — fade intro back in */
+/* Title tap — come back from calc to movie screen */
+function showMovieFromCalc(){
+  haptic();
+  fromCalc = true;
+  hideCalc();
+  setTimeout(function(){ movieInput.focus(); }, 400);
+}
+
+/* Back from movie screen */
 function hideMovie(){
-  introActive = true;
-  introEl.style.opacity="1";
-  introEl.style.pointerEvents="auto";
-  movieEl.style.pointerEvents="none";
-  /* snap movie back to 0% in case it drifted */
-  movieEl.style.transform="translateY(0%)";
-  movieEl.style.borderRadius="0";
+  if(fromCalc){
+    /* go back to calc, preserving all ratings */
+    fromCalc = false;
+    showCalc();
+  } else {
+    /* go back to intro */
+    introActive = true;
+    introEl.style.opacity="1";
+    introEl.style.pointerEvents="auto";
+    movieEl.style.pointerEvents="none";
+    movieEl.style.transform="translateY(0%)";
+    movieEl.style.borderRadius="0";
+  }
 }
 
 /* Movie slides up, revealing calc underneath */
@@ -1145,14 +1168,28 @@ document.getElementById("btn-movie-next").addEventListener("click",function(){
   haptic();
   if(!movieTitle) return;
   closeDropdown();
-  if(movieTitle!==committedTitle){ committedTitle=movieTitle; resetAll(); }
+  var titleChanged = movieTitle !== committedTitle;
+  if(titleChanged && committedTitle !== ""){
+    /* They've already started rating — ask if they want to keep scores */
+    var keep = confirm("Keep your current ratings for \""+movieTitle+"\"?\n\nOK = keep scores\nCancel = start fresh");
+    if(!keep){ resetAll(); }
+    committedTitle = movieTitle;
+  } else if(titleChanged){
+    committedTitle = movieTitle;
+    resetAll();
+  }
   document.getElementById("calc-film-name").textContent="Ratr Score: "+movieTitle.toUpperCase();
+  fromCalc = false;
   showCalc();
 });
 
 document.getElementById("btn-calc-back").addEventListener("click",function(){
   haptic();
   hideCalc();
+});
+
+document.getElementById("calc-film-name").addEventListener("click",function(){
+  showMovieFromCalc();
 });
 
 document.getElementById("btn-calc-submit").addEventListener("click",function(){
