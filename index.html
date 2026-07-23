@@ -66,6 +66,90 @@ html,body{width:100%;height:100%;overflow:hidden;background:#2563EB;font-family:
   -webkit-backdrop-filter:blur(18px) brightness(0.75);
 }
 
+/* ── MENU (post sign-in) ── */
+#screen-menu{
+  justify-content:center;
+  z-index:3;
+  opacity:0;
+  pointer-events:none;
+  transition:opacity 400ms ease;
+  background:rgba(9,38,110,0.30);
+  backdrop-filter:blur(18px) brightness(0.75);
+  -webkit-backdrop-filter:blur(18px) brightness(0.75);
+}
+.menu-inner{
+  display:flex;flex-direction:column;align-items:center;
+  gap:14px;width:70vw;max-width:340px;
+}
+#btn-use-calc{
+  width:100%;height:50px;font-size:15px;font-weight:400;letter-spacing:0.8px;
+}
+#btn-see-ratings{
+  width:100%;height:38px;font-size:11px;font-weight:200;letter-spacing:1px;
+  font-style:italic;text-transform:uppercase;
+}
+
+/* ── RATINGS HISTORY ── */
+#screen-ratings{
+  justify-content:flex-start;
+  overflow-y:auto;-webkit-overflow-scrolling:touch;
+  z-index:6;
+  transform:translateY(100%);
+  will-change:transform,border-radius;
+  border-radius:0;
+  background:#2563EB;
+}
+.ratings-inner{width:100%;max-width:560px;padding:0 0 60px;color:white;}
+.ratings-inner .topbar{justify-content:space-between;}
+.ratings-inner .topbar-logo{flex:1;}
+.ratings-grid{
+  display:grid;grid-template-columns:repeat(3,1fr);
+  gap:12px;padding:20px;
+}
+.rating-card{
+  display:flex;flex-direction:column;align-items:center;gap:6px;
+}
+.rating-poster{
+  width:100%;aspect-ratio:2/3;border-radius:8px;
+  background:rgba(255,255,255,0.06);
+  border:1px solid rgba(255,255,255,0.28);
+  object-fit:cover;display:block;
+}
+.rating-poster-fallback{
+  width:100%;aspect-ratio:2/3;border-radius:8px;
+  background:rgba(255,255,255,0.06);
+  border:1px solid rgba(255,255,255,0.28);
+  display:flex;align-items:center;justify-content:center;
+  font-size:9px;color:rgba(255,255,255,0.4);
+  font-family:"Courier New",monospace;text-align:center;padding:6px;
+  line-height:1.3;
+}
+.rating-stars{
+  display:flex;align-items:center;gap:2px;justify-content:center;
+}
+.rating-mini-star{
+  position:relative;font-size:11px;line-height:1;color:transparent;
+  -webkit-text-stroke:1px rgba(255,255,255,0.85);
+}
+.rating-mini-fill{
+  position:absolute;inset:0;width:0%;overflow:hidden;white-space:nowrap;
+  color:white;-webkit-text-stroke:0;
+}
+.rating-mini-fill::before{content:"★";}
+.rating-score-num{
+  font-size:9px;color:rgba(255,255,255,0.55);
+  font-family:"Courier New",monospace;margin-left:3px;
+}
+.ratings-empty{
+  padding:60px 30px;text-align:center;
+  font-size:12px;color:rgba(255,255,255,0.5);font-style:italic;
+}
+.ratings-loading{
+  padding:60px 30px;text-align:center;
+  font-size:11px;color:rgba(255,255,255,0.45);
+  font-family:"Courier New",monospace;letter-spacing:1px;
+}
+
 #slide-scrim{
   position:absolute;inset:0;z-index:1;
   pointer-events:none;
@@ -325,7 +409,6 @@ input.slider-input::-moz-range-track{background:transparent;height:0;}
 <body>
 <div class="app">
 
-<!-- AUTH SCREEN (second screen, revealed after intro tap) -->
 <!-- AUTH SCREEN -->
 <div class="screen" id="screen-auth">
   <div class="movie-inner" style="gap:24px;">
@@ -338,6 +421,28 @@ input.slider-input::-moz-range-track{background:transparent;height:0;}
       <button class="btn btn-ghost" id="btn-skip-auth" style="width:100%;font-size:12px;letter-spacing:0.6px;">CONTINUE WITHOUT SIGNING IN</button>
     </div>
     <div id="auth-error" style="font-size:11px;color:rgba(255,100,100,0.9);font-style:italic;display:none;">something went wrong — try again</div>
+  </div>
+</div>
+
+<!-- MENU SCREEN (after sign in) -->
+<div class="screen" id="screen-menu">
+  <div class="menu-inner">
+    <button class="btn btn-solid" id="btn-use-calc">USE CALCULATOR</button>
+    <button class="btn btn-ghost" id="btn-see-ratings">See My Ratings</button>
+  </div>
+</div>
+
+<!-- RATINGS HISTORY SCREEN -->
+<div class="screen" id="screen-ratings">
+  <div class="ratings-inner">
+    <div class="topbar">
+      <div class="topbar-logo">ratr</div>
+      <div id="btn-ratings-back" style="font-size:9px;color:rgba(255,255,255,0.4);font-family:'Courier New',monospace;letter-spacing:0.8px;cursor:pointer;text-transform:uppercase;padding:4px 12px 4px 0;transition:color 150ms;">back</div>
+      <div id="btn-ratings-signout" style="font-size:9px;color:rgba(255,255,255,0.4);font-family:'Courier New',monospace;letter-spacing:0.8px;cursor:pointer;text-transform:uppercase;padding:4px 0;transition:color 150ms;">sign out</div>
+    </div>
+    <div id="ratings-content">
+      <div class="ratings-loading">loading your ratings…</div>
+    </div>
   </div>
 </div>
 
@@ -666,6 +771,7 @@ function handleOAuthCallback(){
     });
     /* Clean URL */
     history.replaceState(null,"",window.location.pathname);
+    window.__ratrJustAuthed=true;
     return true;
   }
   return false;
@@ -740,6 +846,80 @@ function saveRating(score){
 
 /* ─── HAPTIC ─── */
 function haptic(pat){ if(navigator.vibrate) navigator.vibrate(pat||10); }
+
+/* ─── RATINGS HISTORY ─── */
+var posterCache={};
+
+function fetchPoster(tmdbId){
+  if(!tmdbId) return Promise.resolve(null);
+  if(posterCache[tmdbId]!==undefined) return Promise.resolve(posterCache[tmdbId]);
+  return fetch("https://api.themoviedb.org/3/movie/"+tmdbId+"?language=en-US",{
+    headers:{"Authorization":"Bearer "+TMDB_TOKEN,"Content-Type":"application/json"}
+  }).then(function(r){ return r.ok?r.json():null; })
+   .then(function(d){
+     var p=d&&d.poster_path?d.poster_path:null;
+     posterCache[tmdbId]=p;
+     return p;
+   }).catch(function(){ posterCache[tmdbId]=null; return null; });
+}
+
+function miniStarsHTML(score){
+  var html="<div class='rating-stars'>";
+  for(var i=1;i<=5;i++){
+    var w = score>=i ? "100%" : (score>=i-0.5 ? "50%" : "0%");
+    html+="<div class='rating-mini-star'><div class='rating-mini-fill' style='width:"+w+"'></div>★</div>";
+  }
+  html+="<span class='rating-score-num'>"+Number(score).toFixed(1)+"</span></div>";
+  return html;
+}
+
+function loadRatings(){
+  var content=document.getElementById("ratings-content");
+  content.innerHTML="<div class='ratings-loading'>loading your ratings…</div>";
+  if(!currentUser){
+    content.innerHTML="<div class='ratings-empty'>sign in to see your ratings</div>";
+    return;
+  }
+  supaFetch("/rest/v1/ratings?select=*&user_id=eq."+currentUser.id+"&order=created_at.desc",{
+    method:"GET",
+    headers:{
+      "apikey":SUPA_KEY,
+      "Authorization":"Bearer "+(currentAccessToken||SUPA_KEY),
+      "Content-Type":"application/json",
+      "Prefer":"return=representation"
+    }
+  }).then(function(r){ return r.json(); })
+  .then(function(rows){
+    if(!rows||rows.length===0){
+      content.innerHTML="<div class='ratings-empty'>no ratings yet — go rate something</div>";
+      return;
+    }
+    /* Fetch all posters in parallel */
+    return Promise.all(rows.map(function(row){
+      return fetchPoster(row.tmdb_id).then(function(p){ row._poster=p; return row; });
+    })).then(function(withPosters){
+      var grid=document.createElement("div");
+      grid.className="ratings-grid";
+      withPosters.forEach(function(row){
+        var card=document.createElement("div");
+        card.className="rating-card";
+        var posterHTML;
+        if(row._poster){
+          posterHTML="<img class='rating-poster' src='https://image.tmdb.org/t/p/w342"+row._poster+"' alt=''/>";
+        } else {
+          posterHTML="<div class='rating-poster-fallback'>"+(row.movie_title||"untitled")+"</div>";
+        }
+        card.innerHTML=posterHTML+miniStarsHTML(row.final_score||0);
+        grid.appendChild(card);
+      });
+      content.innerHTML="";
+      content.appendChild(grid);
+    });
+  }).catch(function(e){
+    console.error("[ratr] ratings load failed:",e);
+    content.innerHTML="<div class='ratings-empty'>couldn't load your ratings</div>";
+  });
+}
 
 /* ─────────────────────────────────────────────
    SPRING PHYSICS ENGINE
@@ -816,6 +996,8 @@ STAR_KEYS.forEach(function(k){ratings[k]=0; lastTap[k]=null;});
 ───────────────────────────────────────────── */
 var introEl  = document.getElementById("screen-intro");
 var authEl   = document.getElementById("screen-auth");
+var menuEl   = document.getElementById("screen-menu");
+var ratingsEl= document.getElementById("screen-ratings");
 var movieEl  = document.getElementById("screen-movie");
 var calcEl   = document.getElementById("screen-calc");
 var scoreEl  = document.getElementById("screen-score");
@@ -823,6 +1005,7 @@ var scrimEl  = document.getElementById("slide-scrim");
 
 /* Movie sits at 0% (visible) but intro covers it on top.
    Calc is behind movie. Score starts off the bottom. */
+ratingsEl.style.transform = "translateY(100%)";
 movieEl.style.transform  = "translateY(0%)";
 movieEl.style.pointerEvents = "none";
 scoreEl.style.transform  = "translateY(100%)";
@@ -839,6 +1022,46 @@ function runSpring(opts){
 /* Tracks whether movie screen was opened from calc (title tap) or from intro */
 var fromCalc = false;
 
+/* Show the post-signin menu */
+function showMenu(){
+  introEl.style.opacity="0";
+  introEl.style.pointerEvents="none";
+  authEl.style.opacity="0";
+  authEl.style.pointerEvents="none";
+  menuEl.style.opacity="1";
+  menuEl.style.pointerEvents="auto";
+}
+
+function hideMenu(){
+  menuEl.style.opacity="0";
+  menuEl.style.pointerEvents="none";
+}
+
+/* Ratings history slides up */
+function showRatings(){
+  ratingsEl.style.pointerEvents="auto";
+  loadRatings();
+  runSpring({
+    el: ratingsEl,
+    from: 100, to: 0,
+    vel: 8,
+    stiffness: 300, damping: 30, mass: 1,
+    roundCorners: true
+  });
+}
+
+function hideRatings(){
+  runSpring({
+    el: ratingsEl,
+    from: 0, to: 100,
+    stiffness: 280, damping: 32, mass: 1,
+    roundCorners: true,
+    onDone: function(){
+      ratingsEl.style.pointerEvents="none";
+    }
+  });
+}
+
 /* Intro fades out to reveal the movie screen underneath */
 function showMovie(){
   haptic();
@@ -848,6 +1071,8 @@ function showMovie(){
   introEl.style.pointerEvents="none";
   authEl.style.opacity="0";
   authEl.style.pointerEvents="none";
+  menuEl.style.opacity="0";
+  menuEl.style.pointerEvents="none";
   movieEl.style.pointerEvents="auto";
   requestAnimationFrame(function(){
     document.getElementById("movieInput").focus();
@@ -873,8 +1098,8 @@ function hideMovie(){
     movieEl.style.transform="translateY(0%)";
     movieEl.style.borderRadius="0";
     if(currentUser){
-      introEl.style.opacity="1";
-      introEl.style.pointerEvents="auto";
+      menuEl.style.opacity="1";
+      menuEl.style.pointerEvents="auto";
     } else {
       authEl.style.opacity="1";
       authEl.style.pointerEvents="auto";
@@ -1252,14 +1477,19 @@ STAR_KEYS.forEach(function(k){ buildStars(k); });
    WIRING
 ───────────────────────────────────────────── */
 
-/* Boot: if already authed, skip auth screen entirely */
+/* Boot: if already authed, intro tap goes to menu; else to auth */
 bootAuth(
   function onAuthed(){
-    authEl.style.display="none";
+    /* If we just came back from an OAuth redirect, jump straight to the menu */
+    if(window.__ratrJustAuthed){
+      introEl.style.opacity="0";
+      introEl.style.pointerEvents="none";
+      menuEl.style.opacity="1";
+      menuEl.style.pointerEvents="auto";
+      introActive=false;
+    }
   },
-  function onNeedsAuth(){
-    /* not signed in — intro tap will reveal auth */
-  }
+  function onNeedsAuth(){ /* not signed in — intro tap shows auth */ }
 );
 
 /* Show auth screen */
@@ -1275,11 +1505,48 @@ document.getElementById("btn-google-signin").addEventListener("click",function()
   signInWithGoogle();
 });
 
+/* Skip auth → straight to calculator flow */
 document.getElementById("btn-skip-auth").addEventListener("click",function(){
   haptic();
   authEl.style.opacity="0";
   authEl.style.pointerEvents="none";
   showMovie();
+});
+
+/* Menu: use calculator */
+document.getElementById("btn-use-calc").addEventListener("click",function(){
+  haptic();
+  hideMenu();
+  showMovie();
+});
+
+/* Menu: see my ratings */
+document.getElementById("btn-see-ratings").addEventListener("click",function(){
+  haptic();
+  showRatings();
+});
+
+/* Ratings screen back */
+document.getElementById("btn-ratings-back").addEventListener("click",function(){
+  haptic();
+  hideRatings();
+});
+document.getElementById("btn-ratings-back").addEventListener("mouseover",function(){
+  this.style.color="rgba(255,255,255,0.75)";
+});
+document.getElementById("btn-ratings-back").addEventListener("mouseout",function(){
+  this.style.color="rgba(255,255,255,0.4)";
+});
+
+document.getElementById("btn-ratings-signout").addEventListener("click",function(){
+  haptic();
+  signOut();
+});
+document.getElementById("btn-ratings-signout").addEventListener("mouseover",function(){
+  this.style.color="rgba(255,255,255,0.75)";
+});
+document.getElementById("btn-ratings-signout").addEventListener("mouseout",function(){
+  this.style.color="rgba(255,255,255,0.4)";
 });
 
 document.getElementById("btn-signout").addEventListener("click",function(){
@@ -1293,10 +1560,11 @@ document.getElementById("btn-signout").addEventListener("mouseout",function(){
   this.style.color="rgba(255,255,255,0.4)";
 });
 
-/* Intro: tap or keypress — if authed go to movie, otherwise show auth */
+/* Intro: tap or keypress — authed goes to menu, otherwise auth screen */
 introEl.addEventListener("click",function(e){
   if(e.target.closest("button,input")) return;
-  if(currentUser){ showMovie(); } else { showAuth(); }
+  introActive=false;
+  if(currentUser){ showMenu(); } else { showAuth(); }
 });
 
 var introActive = true;
@@ -1304,7 +1572,7 @@ document.addEventListener("keydown",function(e){
   if(!introActive) return;
   if(["Shift","Control","Alt","Meta","Tab","CapsLock","Enter","Escape"].indexOf(e.key)!==-1) return;
   introActive = false;
-  if(currentUser){ showMovie(); } else { showAuth(); }
+  if(currentUser){ showMenu(); } else { showAuth(); }
 });
 
 /* ─────────────────────────────────────────────
