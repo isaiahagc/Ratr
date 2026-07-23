@@ -108,13 +108,16 @@ html,body{width:100%;height:100%;overflow:hidden;background:#2563EB;font-family:
 }
 .rating-card{
   display:flex;flex-direction:column;align-items:center;gap:6px;
+  cursor:pointer;
 }
 .rating-poster{
   width:100%;aspect-ratio:2/3;border-radius:8px;
   background:rgba(255,255,255,0.06);
   border:1px solid rgba(255,255,255,0.28);
   object-fit:cover;display:block;
+  transition:border-color 150ms ease, transform 150ms ease;
 }
+.rating-card:hover .rating-poster{border-color:rgba(255,255,255,0.7);transform:translateY(-2px);}
 .rating-poster-fallback{
   width:100%;aspect-ratio:2/3;border-radius:8px;
   background:rgba(255,255,255,0.06);
@@ -123,22 +126,29 @@ html,body{width:100%;height:100%;overflow:hidden;background:#2563EB;font-family:
   font-size:9px;color:rgba(255,255,255,0.4);
   font-family:"Courier New",monospace;text-align:center;padding:6px;
   line-height:1.3;
+  transition:border-color 150ms ease, transform 150ms ease;
 }
-.rating-stars{
-  display:flex;align-items:center;gap:2px;justify-content:center;
+.rating-card:hover .rating-poster-fallback{border-color:rgba(255,255,255,0.7);transform:translateY(-2px);}
+
+/* Proportional filled stars — no hollow outlines */
+.rating-stars-row{
+  display:flex;align-items:center;justify-content:center;gap:5px;
+  height:18px;
 }
-.rating-mini-star{
-  position:relative;font-size:11px;line-height:1;color:transparent;
-  -webkit-text-stroke:1px rgba(255,255,255,0.85);
+.rating-stars-clip{
+  position:relative;height:18px;overflow:hidden;white-space:nowrap;
+  display:flex;align-items:center;
 }
-.rating-mini-fill{
-  position:absolute;inset:0;width:0%;overflow:hidden;white-space:nowrap;
-  color:white;-webkit-text-stroke:0;
+.rating-stars-clip span{
+  font-size:16px;line-height:18px;color:white;letter-spacing:1px;
+  display:block;
 }
-.rating-mini-fill::before{content:"★";}
 .rating-score-num{
-  font-size:9px;color:rgba(255,255,255,0.55);
-  font-family:"Courier New",monospace;margin-left:3px;
+  font-size:11px;color:rgba(255,255,255,0.7);
+  font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+  font-style:italic;
+  height:18px;line-height:18px;
+  display:flex;align-items:center;
 }
 .ratings-empty{
   padding:60px 30px;text-align:center;
@@ -148,6 +158,89 @@ html,body{width:100%;height:100%;overflow:hidden;background:#2563EB;font-family:
   padding:60px 30px;text-align:center;
   font-size:11px;color:rgba(255,255,255,0.45);
   font-family:"Courier New",monospace;letter-spacing:1px;
+}
+
+/* ── DETAIL SCREEN ── */
+#screen-detail{
+  justify-content:flex-start;
+  overflow-y:auto;-webkit-overflow-scrolling:touch;
+  z-index:7;
+  transform:translateY(100%);
+  will-change:transform,border-radius;
+  border-radius:0;
+  background:#2563EB;
+}
+.detail-inner{width:100%;max-width:560px;padding:0 0 80px;color:white;}
+.detail-inner .topbar{justify-content:space-between;}
+.detail-header{
+  display:flex;gap:16px;padding:20px;align-items:flex-start;
+}
+.detail-poster{
+  width:90px;flex-shrink:0;aspect-ratio:2/3;border-radius:8px;
+  border:1px solid rgba(255,255,255,0.28);object-fit:cover;
+  background:rgba(255,255,255,0.06);
+}
+.detail-title-block{flex:1;min-width:0;padding-top:2px;}
+.detail-title{
+  font-size:16px;font-weight:700;color:white;line-height:1.2;
+  margin-bottom:6px;
+}
+.detail-date{
+  font-size:10px;color:rgba(255,255,255,0.45);
+  font-family:"Courier New",monospace;letter-spacing:0.6px;
+  text-transform:uppercase;
+}
+.detail-tabs{
+  display:flex;gap:0;padding:0 20px;
+  border-bottom:1px solid rgba(255,255,255,0.12);
+}
+.detail-tab{
+  flex:1;padding:12px 4px;text-align:center;cursor:pointer;
+  font-size:10px;letter-spacing:0.8px;text-transform:uppercase;
+  color:rgba(255,255,255,0.45);font-weight:600;
+  border-bottom:2px solid transparent;
+  transition:color 150ms ease, border-color 150ms ease;
+}
+.detail-tab.active{color:white;border-bottom-color:white;}
+.detail-tab:hover:not(.active){color:rgba(255,255,255,0.7);}
+.detail-panel{display:none;padding:0;}
+.detail-panel.active{display:block;}
+
+.detail-metric-row{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:13px 20px;
+  border-bottom:1px solid rgba(255,255,255,0.08);
+}
+.detail-metric-name{
+  font-size:13px;color:white;font-weight:600;
+}
+.detail-metric-sub{
+  font-size:9px;color:rgba(255,255,255,0.4);font-style:italic;margin-top:2px;
+}
+.detail-metric-val{
+  display:flex;align-items:center;gap:6px;flex-shrink:0;
+}
+.detail-section-label{
+  padding:18px 20px 8px;
+  font-size:11px;letter-spacing:2px;text-transform:uppercase;
+  color:rgba(255,255,255,0.55);font-weight:700;
+}
+.detail-final{
+  margin:20px;padding:24px;border-radius:18px;
+  background:white;display:flex;flex-direction:column;
+  align-items:center;gap:6px;
+}
+.detail-final-num{
+  font-size:52px;font-weight:700;font-style:italic;line-height:1;
+  letter-spacing:-2px;font-family:"Courier New",monospace;
+}
+.detail-final-label{
+  font-size:9px;letter-spacing:3px;text-transform:uppercase;font-weight:300;
+}
+.detail-avg-count{
+  font-size:10px;color:rgba(255,255,255,0.45);
+  font-family:"Courier New",monospace;letter-spacing:0.6px;
+  padding:0 20px 14px;text-align:center;font-style:italic;
 }
 
 #slide-scrim{
@@ -636,6 +729,25 @@ input.slider-input::-moz-range-track{background:transparent;height:0;}
   </div>
 </div>
 
+<!-- DETAIL SCREEN -->
+<div class="screen" id="screen-detail">
+  <div class="detail-inner">
+    <div class="topbar">
+      <div class="topbar-logo">ratr</div>
+      <div id="btn-detail-back" style="font-size:9px;color:rgba(255,255,255,0.4);font-family:'Courier New',monospace;letter-spacing:0.8px;cursor:pointer;text-transform:uppercase;padding:4px 0;transition:color 150ms;">back</div>
+    </div>
+    <div class="detail-header" id="detail-header"></div>
+    <div class="detail-tabs">
+      <div class="detail-tab active" data-tab="mine">My Ratr Score</div>
+      <div class="detail-tab" data-tab="avg">Avg Ratr Score</div>
+      <div class="detail-tab" data-tab="again">Rate Again</div>
+    </div>
+    <div class="detail-panel active" id="panel-mine"></div>
+    <div class="detail-panel" id="panel-avg"></div>
+    <div class="detail-panel" id="panel-again"></div>
+  </div>
+</div>
+
 <!-- SCORE -->
 <div class="screen" id="screen-score">
   <div class="score-inner">
@@ -863,13 +975,19 @@ function fetchPoster(tmdbId){
    }).catch(function(){ posterCache[tmdbId]=null; return null; });
 }
 
-function miniStarsHTML(score){
-  var html="<div class='rating-stars'>";
-  for(var i=1;i<=5;i++){
-    var w = score>=i ? "100%" : (score>=i-0.5 ? "50%" : "0%");
-    html+="<div class='rating-mini-star'><div class='rating-mini-fill' style='width:"+w+"'></div>★</div>";
+/* Proportional filled stars — clips a row of 5 stars to the score fraction */
+function proportionalStarsHTML(score, starSize, showNum){
+  var pct=Math.max(0,Math.min(1,Number(score)/5))*100;
+  var size=starSize||16;
+  var h=Math.round(size*1.15);
+  var html="<div class='rating-stars-row' style='height:"+h+"px'>";
+  html+="<div class='rating-stars-clip' style='height:"+h+"px;width:"+(pct/100*(size*5+4*1))+"px'>";
+  html+="<span style='font-size:"+size+"px;line-height:"+h+"px'>★★★★★</span>";
+  html+="</div>";
+  if(showNum!==false){
+    html+="<span class='rating-score-num' style='height:"+h+"px;line-height:"+h+"px'>"+Number(score).toFixed(2)+"</span>";
   }
-  html+="<span class='rating-score-num'>"+Number(score).toFixed(1)+"</span></div>";
+  html+="</div>";
   return html;
 }
 
@@ -909,7 +1027,11 @@ function loadRatings(){
         } else {
           posterHTML="<div class='rating-poster-fallback'>"+(row.movie_title||"untitled")+"</div>";
         }
-        card.innerHTML=posterHTML+miniStarsHTML(row.final_score||0);
+        card.innerHTML=posterHTML+proportionalStarsHTML(row.final_score||0, 16, true);
+        card.addEventListener("click",function(){
+          haptic();
+          openDetail(row);
+        });
         grid.appendChild(card);
       });
       content.innerHTML="";
@@ -918,6 +1040,334 @@ function loadRatings(){
   }).catch(function(e){
     console.error("[ratr] ratings load failed:",e);
     content.innerHTML="<div class='ratings-empty'>couldn't load your ratings</div>";
+  });
+}
+
+/* ─── DETAIL SCREEN ─── */
+var detailRow=null;
+
+var METRIC_DEFS=[
+  {key:"screenplay",       name:"Screenplay",         sub:"Writing, Structure, Dialogue",   type:"star"},
+  {key:"direction",        name:"Direction",          sub:"Vision, Pacing, Editing",        type:"star"},
+  {key:"acting",           name:"Acting",             sub:"Ensemble Performance",           type:"star"},
+  {key:"cinematography",   name:"Cinematography",     sub:"Visual Craft, Framing",          type:"star"},
+  {key:"resonance",        name:"Resonance",          sub:"Staying Power, Thematic Depth",  type:"star"},
+  {key:"music",            name:"Music & Sound",      sub:"",                               type:"music"},
+  {key:"gut_reaction",     name:"Your Gut Reaction",  sub:"Pure, Unfiltered Feeling",       type:"star"},
+  {key:"general_appeal",   name:"General Audience Appeal", sub:"",                          type:"pct"},
+  {key:"family_accessibility", name:"Family Accessibility", sub:"",                         type:"pct"},
+  {key:"artistic_intent",  name:"Artistic Intentionality", sub:"",                          type:"pct"}
+];
+
+var MUSIC_LABELS={"-1":"Bad","0":"Average","1":"Good","2":"Transcendent"};
+
+function metricValueHTML(def, val){
+  if(val===null||val===undefined) return "<span style='font-size:11px;color:rgba(255,255,255,0.3);font-style:italic;'>—</span>";
+  if(def.type==="star") return proportionalStarsHTML(val, 13, true);
+  if(def.type==="music"){
+    var rounded=Math.round(val);
+    return "<span style='font-size:12px;color:white;font-weight:600;'>"+(MUSIC_LABELS[String(rounded)]||"—")+"</span>";
+  }
+  if(def.type==="pct") return "<span style='font-family:\"Courier New\",monospace;font-size:13px;color:white;'>"+Math.round(val)+"</span>";
+  return "";
+}
+
+function renderMetricList(dataObj){
+  var html="";
+  METRIC_DEFS.forEach(function(def){
+    var v=dataObj[def.key];
+    html+="<div class='detail-metric-row'>";
+    html+="<div><div class='detail-metric-name'>"+def.name+"</div>";
+    if(def.sub) html+="<div class='detail-metric-sub'>"+def.sub+"</div>";
+    html+="</div>";
+    html+="<div class='detail-metric-val'>"+metricValueHTML(def, v)+"</div>";
+    html+="</div>";
+  });
+  return html;
+}
+
+function openDetail(row){
+  detailRow=row;
+  var header=document.getElementById("detail-header");
+  var posterHTML = row._poster
+    ? "<img class='detail-poster' src='https://image.tmdb.org/t/p/w342"+row._poster+"' alt=''/>"
+    : "<div class='detail-poster' style='display:flex;align-items:center;justify-content:center;font-size:9px;color:rgba(255,255,255,0.4);font-family:monospace;text-align:center;padding:6px;'>"+(row.movie_title||"untitled")+"</div>";
+  var dateStr="";
+  if(row.created_at){
+    var d=new Date(row.created_at);
+    dateStr=d.toLocaleDateString(undefined,{year:"numeric",month:"short",day:"numeric"});
+  }
+  header.innerHTML=posterHTML+
+    "<div class='detail-title-block'>"+
+      "<div class='detail-title'>"+(row.movie_title||"untitled")+"</div>"+
+      "<div class='detail-date'>rated "+dateStr+"</div>"+
+    "</div>";
+
+  var mine=document.getElementById("panel-mine");
+  var color=scoreColor(row.final_score||0);
+  mine.innerHTML=
+    "<div class='detail-final'>"+
+      "<div class='detail-final-num' style='color:"+color+"'>"+Number(row.final_score||0).toFixed(2)+"</div>"+
+      "<div class='detail-final-label' style='color:"+color+"'>"+scoreLabel(row.final_score||0)+"</div>"+
+    "</div>"+
+    "<div class='detail-section-label'>Your Breakdown</div>"+
+    renderMetricList(row);
+
+  var avg=document.getElementById("panel-avg");
+  avg.innerHTML="<div class='ratings-loading'>calculating community average…</div>";
+  loadAverage(row.tmdb_id, row.movie_title);
+
+  buildRateAgainPanel(row);
+  setDetailTab("mine");
+  showDetail();
+}
+
+function loadAverage(tmdbIdVal, title){
+  var avg=document.getElementById("panel-avg");
+  var filter = tmdbIdVal
+    ? "tmdb_id=eq."+tmdbIdVal
+    : "movie_title=eq."+encodeURIComponent(title||"");
+  supaFetch("/rest/v1/ratings?select=*&"+filter,{
+    method:"GET",
+    headers:{
+      "apikey":SUPA_KEY,
+      "Authorization":"Bearer "+(currentAccessToken||SUPA_KEY),
+      "Content-Type":"application/json",
+      "Prefer":"return=representation"
+    }
+  }).then(function(r){return r.json();})
+  .then(function(rows){
+    if(!rows||rows.length===0){
+      avg.innerHTML="<div class='ratings-empty'>no community ratings yet</div>";
+      return;
+    }
+    var sums={},counts={};
+    METRIC_DEFS.forEach(function(d){ sums[d.key]=0; counts[d.key]=0; });
+    var finalSum=0, finalCount=0;
+    rows.forEach(function(r){
+      METRIC_DEFS.forEach(function(d){
+        var v=r[d.key];
+        if(v!==null&&v!==undefined){ sums[d.key]+=Number(v); counts[d.key]++; }
+      });
+      if(r.final_score!==null&&r.final_score!==undefined){ finalSum+=Number(r.final_score); finalCount++; }
+    });
+    var avgObj={};
+    METRIC_DEFS.forEach(function(d){
+      avgObj[d.key]= counts[d.key]>0 ? sums[d.key]/counts[d.key] : null;
+    });
+    var avgFinal = finalCount>0 ? finalSum/finalCount : 0;
+    var color=scoreColor(avgFinal);
+    avg.innerHTML=
+      "<div class='detail-final'>"+
+        "<div class='detail-final-num' style='color:"+color+"'>"+avgFinal.toFixed(2)+"</div>"+
+        "<div class='detail-final-label' style='color:"+color+"'>"+scoreLabel(avgFinal)+"</div>"+
+      "</div>"+
+      "<div class='detail-avg-count'>averaged from "+rows.length+" rating"+(rows.length===1?"":"s")+"</div>"+
+      "<div class='detail-section-label'>Community Breakdown</div>"+
+      renderMetricList(avgObj);
+  }).catch(function(e){
+    console.error("[ratr] avg load failed:",e);
+    avg.innerHTML="<div class='ratings-empty'>couldn't load community average</div>";
+  });
+}
+
+function setDetailTab(name){
+  document.querySelectorAll(".detail-tab").forEach(function(t){
+    t.classList.toggle("active", t.getAttribute("data-tab")===name);
+  });
+  document.getElementById("panel-mine").classList.toggle("active", name==="mine");
+  document.getElementById("panel-avg").classList.toggle("active", name==="avg");
+  document.getElementById("panel-again").classList.toggle("active", name==="again");
+}
+
+/* ─── RATE AGAIN PANEL ─── */
+var RA_KEYS=["S","D","A","C","Rs","J"];
+var raRatings={}, raLastTap={}, raMFlag=null, raSliders={P:50,K:50,F:50};
+
+function raRow(name,sub,key,quip){
+  return "<div class='rating-row'>"+
+    "<div class='rating-row-top'>"+
+      "<div class='row-info'><div class='row-name'>"+name+"</div><div class='row-desc'>"+sub+"</div></div>"+
+      "<div class='stars-row' id='ra-stars-"+key+"'></div>"+
+    "</div>"+
+    "<div class='row-quip'>"+quip+"</div>"+
+  "</div>";
+}
+
+function raMusicBtn(flag,label,desc){
+  return "<button class='music-btn' data-flag='"+flag+"'>"+
+    "<span class='music-label'>"+label+"</span>"+
+    "<span class='music-desc'>"+desc+"</span>"+
+  "</button>";
+}
+
+function raSliderHTML(name,key,quip){
+  return "<div class='slider-row'>"+
+    "<div class='slider-header'><span class='sl-name'>"+name+"</span>"+
+    "<span class='sl-val' id='ra-val-"+key+"'>50</span></div>"+
+    "<div class='sl-quip'>"+quip+"</div>"+
+    "<div class='slider-track-wrap'>"+
+      "<div class='slider-line'></div><div class='slider-center-tick'></div>"+
+      "<input type='range' class='slider-input' min='0' max='100' step='1' value='50' id='ra-slider-"+key+"'/>"+
+    "</div>"+
+  "</div>";
+}
+
+function raDrawStars(key){
+  var r=raRatings[key];
+  document.querySelectorAll("#ra-stars-"+key+" .star").forEach(function(el,idx){
+    var v=idx+1;
+    el.querySelector(".star-fill").style.width = r>=v?"100%": r===v-0.5?"50%":"0%";
+  });
+  var valEl=document.getElementById("ra-star-val-"+key);
+  if(valEl) valEl.textContent = raRatings[key]===0?"—":raRatings[key].toFixed(1);
+}
+
+function raBuildStars(key){
+  var wrap=document.getElementById("ra-stars-"+key);
+  if(!wrap) return;
+  wrap.innerHTML="";
+  for(var i=1;i<=5;i++){
+    (function(v){
+      var star=document.createElement("div");
+      star.className="star";
+      star.innerHTML="<div class='star-fill'></div>★";
+      star.addEventListener("click",function(){
+        haptic();
+        if(raLastTap[key]===v){
+          if(raRatings[key]===v)          { raRatings[key]=v-0.5; }
+          else if(raRatings[key]===v-0.5) { raRatings[key]=v-1; }
+          else                             { raRatings[key]=v; }
+        } else { raRatings[key]=v; }
+        raLastTap[key]=v;
+        raDrawStars(key);
+      });
+      wrap.appendChild(star);
+    })(i);
+  }
+  var valSpan=document.createElement("span");
+  valSpan.className="star-val"; valSpan.id="ra-star-val-"+key; valSpan.textContent="—";
+  wrap.appendChild(valSpan);
+  raDrawStars(key);
+}
+
+function raCalcScore(){
+  var S=raRatings.S,D=raRatings.D,A=raRatings.A,C=raRatings.C,Rs=raRatings.Rs,J=raRatings.J;
+  var M=raMFlag===null?0:raMFlag;
+  var craft=0.25*(S-2.5)+0.25*(D-2.5)+0.20*(A-2.5)+0.18*(C-2.5)+0.12*(Rs-2.5);
+  var wm=M===2?0.18:M===1?0.07:M===0?0:0.10;
+  var craftFinal=craft+M*wm;
+  var Jstar=J-2.5;
+  var Ps=raSliders.P/20, Ks=raSliders.K/20, Fs=raSliders.F/20;
+  var Kp=Ks<=3?1.5+0.5*Ks:3+0.4*(Ks-3);
+  var Fp=0.90*Fs;
+  var R=(Ps+0.6*Kp+1.4*Fp)/3;
+  var Rstar=R-2.5;
+  var delta=Math.max(Ps,Ks,Fs)-Math.min(Ps,Ks,Fs);
+  var B=1;
+  if(Ps>3&&Ks>3&&Fs>3){ B=1+0.12*(1-delta/5); }
+  else if(Ps<2&&Ks<2&&Fs<2){ B=1-0.12*(1-delta/5); }
+  var WRp=0.25*B, T=0.50+0.28+WRp;
+  var WC=0.50/T, WJ=0.28/T, WR=WRp/T;
+  return Math.max(0,Math.min(5, 2.5+WC*craftFinal+WJ*Jstar+WR*Rstar));
+}
+
+function raSaveRating(row, score){
+  var payload={
+    user_id: currentUser?currentUser.id:null,
+    tmdb_id: row.tmdb_id||null,
+    movie_title: row.movie_title,
+    screenplay: raRatings.S||null,
+    direction: raRatings.D||null,
+    acting: raRatings.A||null,
+    cinematography: raRatings.C||null,
+    resonance: raRatings.Rs||null,
+    music: raMFlag,
+    gut_reaction: raRatings.J||null,
+    general_appeal: raSliders.P,
+    family_accessibility: raSliders.K,
+    artistic_intent: raSliders.F,
+    final_score: parseFloat(score.toFixed(2))
+  };
+  supaFetch("/rest/v1/ratings",{
+    method:"POST",
+    body: JSON.stringify(payload)
+  }, currentAccessToken||SUPA_KEY).then(function(r){
+    if(!r.ok) r.text().then(function(t){ console.error("[ratr] re-rate save failed:",t); });
+    else console.log("[ratr] re-rating saved.");
+  }).catch(function(e){ console.error("[ratr] re-rate error:",e); });
+}
+
+function buildRateAgainPanel(row){
+  RA_KEYS.forEach(function(k){ raRatings[k]=0; raLastTap[k]=null; });
+  raMFlag=null;
+  raSliders={P:50,K:50,F:50};
+
+  var p=document.getElementById("panel-again");
+  p.innerHTML=
+    "<div class='section'><div class='section-header'>The Craft</div>"+
+      raRow("Screenplay","Writing, Structure, Dialogue","S","Did the words on the page make you feel anything?")+
+      raRow("Direction","Vision, Pacing, Editing","D","Someone had to make all these decisions. Were they good ones?")+
+      raRow("Acting","Ensemble Performance","A","Did you believe them, or were you watching actors act?")+
+      raRow("Cinematography","Visual Craft, Framing","C","Close your eyes. Can you still see it? That's your answer.")+
+      raRow("Resonance","Staying Power, Thematic Depth","Rs","Are you still thinking about it? Will you be next week?")+
+    "</div>"+
+    "<div class='section-divider'></div>"+
+    "<div class='section'><div class='section-header'>The Music &amp; Sound</div>"+
+      "<div class='music-grid' id='ra-music-grid'>"+
+        raMusicBtn(-1,"Bad","Actively made things worse")+
+        raMusicBtn(0,"Average","It was there. Barely.")+
+        raMusicBtn(1,"Good","You'll hum it on the way home")+
+        raMusicBtn(2,"Transcendent","The film needed it to exist")+
+      "</div>"+
+    "</div>"+
+    "<div class='section-divider'></div>"+
+    "<div class='section'><div class='section-header'>The Enjoyability</div>"+
+      raRow("Your Gut Reaction","Pure, Unfiltered Feeling","J","Forget the artistry — Did you have fun?")+
+    "</div>"+
+    "<div class='section-divider'></div>"+
+    "<div class='section'><div class='section-header'>The Recommendations</div></div>"+
+    "<div class='slider-section'>"+
+      raSliderHTML("General Audience Appeal","P","Would your most basic friend love this, hate it, or fall asleep?")+
+      raSliderHTML("Family Accessibility","K","Could grandma watch this without leaving the room?")+
+      raSliderHTML("Artistic Intentionality","F","This one's for the movie nerds, cinephiles, and art-house junkies. You know who you are.")+
+    "</div>"+
+    "<div class='nav-wrap'><button class='btn btn-solid' id='ra-submit'>Submit</button></div>"+
+    "<div id='ra-result' style='padding:0 20px;'></div>";
+
+  RA_KEYS.forEach(function(k){ raBuildStars(k); });
+
+  p.querySelectorAll("#ra-music-grid .music-btn").forEach(function(btn){
+    btn.addEventListener("click",function(){
+      haptic();
+      p.querySelectorAll("#ra-music-grid .music-btn").forEach(function(b){b.classList.remove("selected");});
+      btn.classList.add("selected");
+      raMFlag=parseInt(btn.getAttribute("data-flag"));
+    });
+  });
+
+  ["P","K","F"].forEach(function(k){
+    var sl=document.getElementById("ra-slider-"+k);
+    if(!sl) return;
+    sl.addEventListener("input",function(){
+      var raw=parseInt(sl.value);
+      var val=(Math.abs(raw-50)<=4)?50:raw;
+      if(val===50&&raw!==50) sl.value=50;
+      raSliders[k]=val;
+      document.getElementById("ra-val-"+k).textContent=val;
+    });
+  });
+
+  document.getElementById("ra-submit").addEventListener("click",function(){
+    haptic();
+    var score=raCalcScore();
+    var color=scoreColor(score);
+    document.getElementById("ra-result").innerHTML=
+      "<div class='detail-final' style='margin:20px 0;'>"+
+        "<div class='detail-final-num' style='color:"+color+"'>"+score.toFixed(2)+"</div>"+
+        "<div class='detail-final-label' style='color:"+color+"'>"+scoreLabel(score)+"</div>"+
+      "</div>";
+    raSaveRating(row, score);
   });
 }
 
@@ -998,6 +1448,7 @@ var introEl  = document.getElementById("screen-intro");
 var authEl   = document.getElementById("screen-auth");
 var menuEl   = document.getElementById("screen-menu");
 var ratingsEl= document.getElementById("screen-ratings");
+var detailEl = document.getElementById("screen-detail");
 var movieEl  = document.getElementById("screen-movie");
 var calcEl   = document.getElementById("screen-calc");
 var scoreEl  = document.getElementById("screen-score");
@@ -1006,6 +1457,7 @@ var scrimEl  = document.getElementById("slide-scrim");
 /* Movie sits at 0% (visible) but intro covers it on top.
    Calc is behind movie. Score starts off the bottom. */
 ratingsEl.style.transform = "translateY(100%)";
+detailEl.style.transform = "translateY(100%)";
 movieEl.style.transform  = "translateY(0%)";
 movieEl.style.pointerEvents = "none";
 scoreEl.style.transform  = "translateY(100%)";
@@ -1058,6 +1510,30 @@ function hideRatings(){
     roundCorners: true,
     onDone: function(){
       ratingsEl.style.pointerEvents="none";
+    }
+  });
+}
+
+function showDetail(){
+  detailEl.style.pointerEvents="auto";
+  detailEl.scrollTop=0;
+  runSpring({
+    el: detailEl,
+    from: 100, to: 0,
+    vel: 8,
+    stiffness: 300, damping: 30, mass: 1,
+    roundCorners: true
+  });
+}
+
+function hideDetail(){
+  runSpring({
+    el: detailEl,
+    from: 0, to: 100,
+    stiffness: 280, damping: 32, mass: 1,
+    roundCorners: true,
+    onDone: function(){
+      detailEl.style.pointerEvents="none";
     }
   });
 }
@@ -1536,6 +2012,26 @@ document.getElementById("btn-ratings-back").addEventListener("mouseover",functio
 });
 document.getElementById("btn-ratings-back").addEventListener("mouseout",function(){
   this.style.color="rgba(255,255,255,0.4)";
+});
+
+/* Detail screen back + tabs */
+document.getElementById("btn-detail-back").addEventListener("click",function(){
+  haptic();
+  hideDetail();
+});
+document.getElementById("btn-detail-back").addEventListener("mouseover",function(){
+  this.style.color="rgba(255,255,255,0.75)";
+});
+document.getElementById("btn-detail-back").addEventListener("mouseout",function(){
+  this.style.color="rgba(255,255,255,0.4)";
+});
+
+document.querySelectorAll(".detail-tab").forEach(function(tab){
+  tab.addEventListener("click",function(){
+    haptic();
+    setDetailTab(tab.getAttribute("data-tab"));
+    detailEl.scrollTop=0;
+  });
 });
 
 document.getElementById("btn-ratings-signout").addEventListener("click",function(){
