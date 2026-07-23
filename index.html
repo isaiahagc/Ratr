@@ -307,6 +307,53 @@ html,body{width:100%;height:100%;overflow:hidden;background:#2563EB;font-family:
   padding:0 20px 14px;text-align:center;font-style:italic;
 }
 
+/* Multi-entry badge on poster cards */
+.rating-count-badge{
+  font-size:8px;letter-spacing:0.8px;text-transform:uppercase;
+  color:rgba(255,255,255,0.5);font-family:"Courier New",monospace;
+  margin-top:1px;
+}
+
+/* Sub-tabs inside My Ratr Score */
+.detail-subtabs{
+  display:flex;gap:0;padding:0 20px;
+  border-bottom:1px solid rgba(255,255,255,0.12);
+  margin-top:4px;
+}
+.detail-subtab{
+  flex:1;padding:10px 4px;text-align:center;cursor:pointer;
+  font-size:9px;letter-spacing:1px;text-transform:uppercase;
+  color:rgba(255,255,255,0.4);font-weight:600;
+  border-bottom:2px solid transparent;
+  transition:color 150ms ease, border-color 150ms ease;
+}
+.detail-subtab.active{color:white;border-bottom-color:rgba(255,255,255,0.8);}
+.detail-subtab:hover:not(.active){color:rgba(255,255,255,0.65);}
+.detail-subpanel{display:none;}
+.detail-subpanel.active{display:block;}
+
+/* Individual entry rows */
+.entry-row{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:13px 20px;cursor:pointer;
+  border-bottom:1px solid rgba(255,255,255,0.08);
+  transition:background 130ms ease;
+}
+.entry-row:hover{background:rgba(255,255,255,0.05);}
+.entry-row.selected{background:rgba(255,255,255,0.09);}
+.entry-date{
+  font-size:12px;color:white;font-weight:600;
+  display:flex;flex-direction:column;gap:2px;
+}
+.entry-time{
+  font-size:9px;color:rgba(255,255,255,0.4);
+  font-family:"Courier New",monospace;font-weight:400;
+}
+.entry-score{
+  font-size:16px;font-weight:700;font-style:italic;
+  font-family:"Courier New",monospace;flex-shrink:0;
+}
+
 #slide-scrim{
   position:absolute;inset:0;z-index:1;
   pointer-events:none;
@@ -1126,25 +1173,68 @@ function loadRatings(){
       content.innerHTML="<div class='ratings-empty'>no ratings yet — go rate something</div>";
       return;
     }
-    /* Fetch all posters in parallel */
-    return Promise.all(rows.map(function(row){
-      return fetchPoster(row.tmdb_id).then(function(p){ row._poster=p; return row; });
+
+    /* Group entries by movie (tmdb_id when present, else title) */
+    var groups={}, order=[];
+    rows.forEach(function(r){
+      var key = r.tmdb_id ? ("t"+r.tmdb_id) : ("n"+(r.movie_title||"").toLowerCase());
+      if(!groups[key]){
+        groups[key]={
+          key:key,
+          tmdb_id:r.tmdb_id,
+          movie_title:r.movie_title,
+          entries:[],
+          latest:r.created_at
+        };
+        order.push(key);
+      }
+      groups[key].entries.push(r);
+      if(r.created_at > groups[key].latest) groups[key].latest = r.created_at;
+    });
+
+    /* Compute each group's personal average across all metrics */
+    var movies=order.map(function(k){
+      var g=groups[k];
+      var sums={}, counts={};
+      METRIC_DEFS.forEach(function(d){ sums[d.key]=0; counts[d.key]=0; });
+      var finalSum=0, finalCount=0;
+      g.entries.forEach(function(e){
+        METRIC_DEFS.forEach(function(d){
+          var v=e[d.key];
+          if(v!==null&&v!==undefined){ sums[d.key]+=Number(v); counts[d.key]++; }
+        });
+        if(e.final_score!==null&&e.final_score!==undefined){ finalSum+=Number(e.final_score); finalCount++; }
+      });
+      var avgObj={};
+      METRIC_DEFS.forEach(function(d){
+        avgObj[d.key]= counts[d.key]>0 ? sums[d.key]/counts[d.key] : null;
+      });
+      g.avgMetrics=avgObj;
+      g.avgFinal = finalCount>0 ? finalSum/finalCount : 0;
+      return g;
+    });
+
+    return Promise.all(movies.map(function(g){
+      return fetchPoster(g.tmdb_id).then(function(p){ g._poster=p; return g; });
     })).then(function(withPosters){
       var grid=document.createElement("div");
       grid.className="ratings-grid";
-      withPosters.forEach(function(row){
+      withPosters.forEach(function(g){
         var card=document.createElement("div");
         card.className="rating-card";
         var posterHTML;
-        if(row._poster){
-          posterHTML="<img class='rating-poster' src='https://image.tmdb.org/t/p/w342"+row._poster+"' alt=''/>";
+        if(g._poster){
+          posterHTML="<img class='rating-poster' src='https://image.tmdb.org/t/p/w342"+g._poster+"' alt=''/>";
         } else {
-          posterHTML="<div class='rating-poster-fallback'>"+(row.movie_title||"untitled")+"</div>";
+          posterHTML="<div class='rating-poster-fallback'>"+(g.movie_title||"untitled")+"</div>";
         }
-        card.innerHTML=posterHTML+proportionalStarsHTML(row.final_score||0, 16, true);
+        var countBadge = g.entries.length>1
+          ? "<div class='rating-count-badge'>"+g.entries.length+" entries</div>"
+          : "";
+        card.innerHTML=posterHTML+proportionalStarsHTML(g.avgFinal||0, 16, true)+countBadge;
         card.addEventListener("click",function(){
           haptic();
-          openDetail(row);
+          openDetail(g);
         });
         grid.appendChild(card);
       });
@@ -1200,27 +1290,29 @@ function renderMetricList(dataObj){
   return html;
 }
 
-function openDetail(row){
-  detailRow=row;
+function openDetail(group){
+  detailRow=group;
   var header=document.getElementById("detail-header");
   var infoEl=document.getElementById("detail-info");
 
-  var posterHTML = row._poster
-    ? "<img class='detail-poster' src='https://image.tmdb.org/t/p/w342"+row._poster+"' alt=''/>"
-    : "<div class='detail-poster' style='display:flex;align-items:center;justify-content:center;font-size:9px;color:rgba(255,255,255,0.4);font-family:monospace;text-align:center;padding:6px;'>"+(row.movie_title||"untitled")+"</div>";
+  var posterHTML = group._poster
+    ? "<img class='detail-poster' src='https://image.tmdb.org/t/p/w342"+group._poster+"' alt=''/>"
+    : "<div class='detail-poster' style='display:flex;align-items:center;justify-content:center;font-size:9px;color:rgba(255,255,255,0.4);font-family:monospace;text-align:center;padding:6px;'>"+(group.movie_title||"untitled")+"</div>";
 
   var ratedStr="";
-  if(row.created_at){
-    var d=new Date(row.created_at);
+  if(group.latest){
+    var d=new Date(group.latest);
     ratedStr=d.toLocaleDateString(undefined,{year:"numeric",month:"short",day:"numeric"});
   }
+  var ratedLabel = group.entries.length>1
+    ? "last rated "+ratedStr
+    : "rated "+ratedStr;
 
-  /* Initial header — release date + avg fill in async */
   header.innerHTML=posterHTML+
     "<div class='detail-title-block'>"+
-      "<div class='detail-title'>"+(row.movie_title||"untitled")+"</div>"+
+      "<div class='detail-title'>"+(group.movie_title||"untitled")+"</div>"+
       "<div class='detail-meta-line' id='detail-release'>—</div>"+
-      "<div class='detail-meta-line'>rated "+ratedStr+"</div>"+
+      "<div class='detail-meta-line'>"+ratedLabel+"</div>"+
       "<div class='detail-avg-inline' id='detail-avg-inline'>"+
         "<span class='detail-avg-label'>avg</span>"+
         "<span class='detail-avg-value' style='color:rgba(255,255,255,0.4)'>—</span>"+
@@ -1229,16 +1321,14 @@ function openDetail(row){
 
   infoEl.innerHTML="<div class='detail-info-loading'>loading film details…</div>";
 
-  /* Load TMDB details for release date + info block */
-  if(row.tmdb_id){
-    fetchMovieDetails(row.tmdb_id).then(function(d){
+  if(group.tmdb_id){
+    fetchMovieDetails(group.tmdb_id).then(function(d){
       if(!d){ infoEl.innerHTML=""; return; }
       var relEl=document.getElementById("detail-release");
       if(relEl && d.release_date){
         var rd=new Date(d.release_date+"T00:00:00");
         relEl.textContent="released "+rd.toLocaleDateString(undefined,{year:"numeric",month:"short",day:"numeric"});
       }
-      /* Info block */
       var facts=[];
       var rt=formatRuntime(d.runtime);
       if(rt) facts.push("<div class='detail-fact'><strong>"+rt+"</strong></div>");
@@ -1260,7 +1350,6 @@ function openDetail(row){
       if(d.status && d.status!=="Released"){
         facts.push("<div class='detail-fact'>"+d.status+"</div>");
       }
-
       var html="";
       if(d.tagline){
         html+="<div style='font-size:11px;font-style:italic;color:rgba(255,255,255,0.5);margin-bottom:10px;'>“"+d.tagline+"”</div>";
@@ -1277,23 +1366,117 @@ function openDetail(row){
     infoEl.innerHTML="";
   }
 
-  var mine=document.getElementById("panel-mine");
-  var color=scoreColor(row.final_score||0);
-  mine.innerHTML=
-    "<div class='detail-final'>"+
-      "<div class='detail-final-num' style='color:"+color+"'>"+Number(row.final_score||0).toFixed(2)+"</div>"+
-      "<div class='detail-final-label' style='color:"+color+"'>"+scoreLabel(row.final_score||0)+"</div>"+
-    "</div>"+
-    "<div class='detail-section-label'>Your Breakdown</div>"+
-    renderMetricList(row);
+  /* ── Tab 1: My Ratr Score (with sub-tabs) ── */
+  renderMinePanel(group);
 
+  /* ── Tab 2: community average ── */
   var avg=document.getElementById("panel-avg");
   avg.innerHTML="<div class='ratings-loading'>calculating community average…</div>";
-  loadAverage(row.tmdb_id, row.movie_title);
+  loadAverage(group.tmdb_id, group.movie_title);
 
-  buildRateAgainPanel(row);
+  /* ── Tab 3: rate again ── */
+  buildRateAgainPanel(group);
+
   setDetailTab("mine");
   showDetail();
+}
+
+/* Renders the "My Ratr Score" panel, including sub-tabs when there are
+   multiple entries. Both the averaged Breakdown and any individual entry
+   use renderMetricList() so they always stay visually identical. */
+function renderMinePanel(group){
+  var mine=document.getElementById("panel-mine");
+  var color=scoreColor(group.avgFinal||0);
+  var multi = group.entries.length>1;
+
+  var html=
+    "<div class='detail-final'>"+
+      "<div class='detail-final-num' style='color:"+color+"'>"+Number(group.avgFinal||0).toFixed(2)+"</div>"+
+      "<div class='detail-final-label' style='color:"+color+"'>"+scoreLabel(group.avgFinal||0)+"</div>"+
+    "</div>";
+
+  if(multi){
+    html+="<div class='detail-avg-count'>your average across "+group.entries.length+" entries</div>";
+    html+="<div class='detail-subtabs'>"+
+            "<div class='detail-subtab active' data-sub='breakdown'>Breakdown</div>"+
+            "<div class='detail-subtab' data-sub='entries'>My Entries</div>"+
+          "</div>";
+    html+="<div class='detail-subpanel active' id='subpanel-breakdown'>"+
+            renderMetricList(group.avgMetrics)+
+          "</div>";
+    html+="<div class='detail-subpanel' id='subpanel-entries'>"+
+            "<div id='entries-list'></div>"+
+            "<div id='entry-detail'></div>"+
+          "</div>";
+  } else {
+    html+="<div class='detail-section-label'>Breakdown</div>";
+    html+=renderMetricList(group.entries[0]);
+  }
+
+  mine.innerHTML=html;
+
+  if(multi){
+    /* Sub-tab switching */
+    mine.querySelectorAll(".detail-subtab").forEach(function(st){
+      st.addEventListener("click",function(){
+        haptic();
+        var name=st.getAttribute("data-sub");
+        mine.querySelectorAll(".detail-subtab").forEach(function(x){
+          x.classList.toggle("active", x===st);
+        });
+        document.getElementById("subpanel-breakdown").classList.toggle("active", name==="breakdown");
+        document.getElementById("subpanel-entries").classList.toggle("active", name==="entries");
+      });
+    });
+    renderEntriesList(group);
+  }
+}
+
+/* The list of individual entries, newest first */
+function renderEntriesList(group){
+  var list=document.getElementById("entries-list");
+  var detail=document.getElementById("entry-detail");
+  if(!list) return;
+
+  var sorted=group.entries.slice().sort(function(a,b){
+    return (b.created_at||"").localeCompare(a.created_at||"");
+  });
+
+  var html="";
+  sorted.forEach(function(e,i){
+    var d=e.created_at?new Date(e.created_at):null;
+    var dateStr=d?d.toLocaleDateString(undefined,{year:"numeric",month:"short",day:"numeric"}):"—";
+    var timeStr=d?d.toLocaleTimeString(undefined,{hour:"numeric",minute:"2-digit"}):"";
+    var c=scoreColor(e.final_score||0);
+    html+="<div class='entry-row' data-idx='"+i+"'>"+
+            "<div class='entry-date'>"+dateStr+"<span class='entry-time'>"+timeStr+"</span></div>"+
+            "<div class='entry-score' style='color:"+c+"'>"+Number(e.final_score||0).toFixed(2)+"</div>"+
+          "</div>";
+  });
+  list.innerHTML=html;
+  detail.innerHTML="";
+
+  list.querySelectorAll(".entry-row").forEach(function(row){
+    row.addEventListener("click",function(){
+      haptic();
+      var idx=parseInt(row.getAttribute("data-idx"));
+      var entry=sorted[idx];
+      list.querySelectorAll(".entry-row").forEach(function(r){
+        r.classList.toggle("selected", r===row);
+      });
+      var d=entry.created_at?new Date(entry.created_at):null;
+      var dateStr=d?d.toLocaleDateString(undefined,{year:"numeric",month:"short",day:"numeric"}):"—";
+      var c=scoreColor(entry.final_score||0);
+      detail.innerHTML=
+        "<div class='detail-final' style='margin-top:16px;'>"+
+          "<div class='detail-final-num' style='color:"+c+"'>"+Number(entry.final_score||0).toFixed(2)+"</div>"+
+          "<div class='detail-final-label' style='color:"+c+"'>"+scoreLabel(entry.final_score||0)+"</div>"+
+        "</div>"+
+        "<div class='detail-section-label'>Breakdown — "+dateStr+"</div>"+
+        renderMetricList(entry);
+      detail.scrollIntoView({behavior:"smooth",block:"nearest"});
+    });
+  });
 }
 
 function loadAverage(tmdbIdVal, title){
@@ -1481,9 +1664,39 @@ function raSaveRating(row, score){
     method:"POST",
     body: JSON.stringify(payload)
   }, currentAccessToken||SUPA_KEY).then(function(r){
-    if(!r.ok) r.text().then(function(t){ console.error("[ratr] re-rate save failed:",t); });
-    else console.log("[ratr] re-rating saved.");
+    if(!r.ok){
+      r.text().then(function(t){ console.error("[ratr] re-rate save failed:",t); });
+      return;
+    }
+    console.log("[ratr] re-rating saved.");
+    /* Add locally and re-render so the new entry shows immediately */
+    payload.created_at=new Date().toISOString();
+    row.entries.push(payload);
+    row.latest=payload.created_at;
+    recomputeGroupAverages(row);
+    renderMinePanel(row);
+    loadAverage(row.tmdb_id, row.movie_title);
   }).catch(function(e){ console.error("[ratr] re-rate error:",e); });
+}
+
+/* Recalculate a group's personal averages after a new entry is added */
+function recomputeGroupAverages(g){
+  var sums={}, counts={};
+  METRIC_DEFS.forEach(function(d){ sums[d.key]=0; counts[d.key]=0; });
+  var finalSum=0, finalCount=0;
+  g.entries.forEach(function(e){
+    METRIC_DEFS.forEach(function(d){
+      var v=e[d.key];
+      if(v!==null&&v!==undefined){ sums[d.key]+=Number(v); counts[d.key]++; }
+    });
+    if(e.final_score!==null&&e.final_score!==undefined){ finalSum+=Number(e.final_score); finalCount++; }
+  });
+  var avgObj={};
+  METRIC_DEFS.forEach(function(d){
+    avgObj[d.key]= counts[d.key]>0 ? sums[d.key]/counts[d.key] : null;
+  });
+  g.avgMetrics=avgObj;
+  g.avgFinal = finalCount>0 ? finalSum/finalCount : 0;
 }
 
 function buildRateAgainPanel(row){
@@ -1722,6 +1935,8 @@ function hideDetail(){
     roundCorners: true,
     onDone: function(){
       detailEl.style.pointerEvents="none";
+      /* Refresh grid so any new entries are reflected */
+      if(ratingsEl.style.pointerEvents==="auto") loadRatings();
     }
   });
 }
@@ -2201,6 +2416,49 @@ document.getElementById("btn-ratings-back").addEventListener("mouseover",functio
 document.getElementById("btn-ratings-back").addEventListener("mouseout",function(){
   this.style.color="rgba(255,255,255,0.4)";
 });
+
+/* ─────────────────────────────────────────────
+   SWIPE BACK GESTURE
+───────────────────────────────────────────── */
+(function(){
+  var startX=0, startY=0, startT=0, tracking=false;
+
+  /* Returns the correct "go back" action for whatever screen is on top */
+  function currentBackAction(){
+    if(detailEl.style.pointerEvents==="auto") return hideDetail;
+    if(ratingsEl.style.pointerEvents==="auto") return hideRatings;
+    if(scoreEl.style.pointerEvents==="auto") return hideScore;
+    /* Calc is showing when movie has slid up out of the way */
+    var mt=movieEl.style.transform||"";
+    if(mt.indexOf("-100")!==-1) return hideCalc;
+    if(movieEl.style.pointerEvents==="auto") return hideMovie;
+    return null;
+  }
+
+  function onStart(e){
+    var t=e.touches?e.touches[0]:e;
+    startX=t.clientX; startY=t.clientY; startT=Date.now();
+    /* Only track swipes that begin near the left edge */
+    tracking = startX < 60;
+  }
+
+  function onEnd(e){
+    if(!tracking) return;
+    tracking=false;
+    var t=e.changedTouches?e.changedTouches[0]:e;
+    var dx=t.clientX-startX;
+    var dy=Math.abs(t.clientY-startY);
+    var dt=Date.now()-startT;
+    /* Rightward swipe, mostly horizontal, reasonably quick */
+    if(dx>70 && dy<80 && dt<800){
+      var action=currentBackAction();
+      if(action){ haptic(); action(); }
+    }
+  }
+
+  document.addEventListener("touchstart", onStart, {passive:true});
+  document.addEventListener("touchend", onEnd, {passive:true});
+})();
 
 /* Return to the menu (or auth screen if not signed in) from anywhere */
 function goHome(){
