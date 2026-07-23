@@ -479,7 +479,8 @@ input.slider-input::-moz-range-track{background:transparent;height:0;}
 
 <!-- MOVIE -->
 <div class="screen" id="screen-movie">
-  <div class="movie-inner">
+  <!-- Typing panel -->
+  <div class="movie-inner" id="movie-panel-type" style="transition:opacity 220ms ease;">
     <div style="font-size:14px;font-weight:400;color:white;letter-spacing:0.4px;">LET'S GET STARTED!</div>
     <div class="movie-prompt">what movie did you watch?</div>
     <div style="position:relative;width:70vw;max-width:420px;">
@@ -489,6 +490,14 @@ input.slider-input::-moz-range-track{background:transparent;height:0;}
     <div style="display:flex;gap:8px;">
       <button class="btn btn-ghost" id="btn-movie-back">Back</button>
       <button class="btn btn-solid" id="btn-movie-next">Next</button>
+    </div>
+  </div>
+  <!-- Keep scores panel (fades in over the top) -->
+  <div class="movie-inner" id="movie-panel-confirm" style="position:absolute;inset:0;opacity:0;pointer-events:none;transition:opacity 220ms ease;justify-content:center;">
+    <div style="font-size:14px;font-weight:400;color:white;letter-spacing:0.4px;">KEEP YOUR SCORES?</div>
+    <div style="display:flex;gap:8px;margin-top:8px;">
+      <button class="btn btn-ghost" id="btn-keep-no">No</button>
+      <button class="btn btn-solid" id="btn-keep-yes">Yes</button>
     </div>
   </div>
 </div>
@@ -1161,23 +1170,62 @@ movieInput.addEventListener("blur",function(){
 
 document.getElementById("btn-movie-back").addEventListener("click",function(){
   haptic();
+  hideKeepConfirm();
   hideMovie();
 });
+
+function hasAnyScores(){
+  return STAR_KEYS.some(function(k){ return ratings[k]>0; }) || mFlag!==null;
+}
+
+function showKeepConfirm(){
+  var typePanel=document.getElementById("movie-panel-type");
+  var confirmPanel=document.getElementById("movie-panel-confirm");
+  typePanel.style.opacity="0";
+  typePanel.style.pointerEvents="none";
+  confirmPanel.style.opacity="1";
+  confirmPanel.style.pointerEvents="auto";
+}
+
+function hideKeepConfirm(){
+  var typePanel=document.getElementById("movie-panel-type");
+  var confirmPanel=document.getElementById("movie-panel-confirm");
+  confirmPanel.style.opacity="0";
+  confirmPanel.style.pointerEvents="none";
+  typePanel.style.opacity="1";
+  typePanel.style.pointerEvents="auto";
+}
 
 document.getElementById("btn-movie-next").addEventListener("click",function(){
   haptic();
   if(!movieTitle) return;
   closeDropdown();
   var titleChanged = movieTitle !== committedTitle;
-  if(titleChanged && committedTitle !== ""){
-    /* They've already started rating — ask if they want to keep scores */
-    var keep = confirm("Keep your current ratings for \""+movieTitle+"\"?\n\nOK = keep scores\nCancel = start fresh");
-    if(!keep){ resetAll(); }
-    committedTitle = movieTitle;
-  } else if(titleChanged){
-    committedTitle = movieTitle;
-    resetAll();
+  if(titleChanged && committedTitle !== "" && hasAnyScores()){
+    showKeepConfirm();
+    return;
   }
+  if(titleChanged){ resetAll(); }
+  committedTitle = movieTitle;
+  document.getElementById("calc-film-name").textContent="Ratr Score: "+movieTitle.toUpperCase();
+  fromCalc = false;
+  showCalc();
+});
+
+document.getElementById("btn-keep-yes").addEventListener("click",function(){
+  haptic();
+  hideKeepConfirm();
+  committedTitle = movieTitle;
+  document.getElementById("calc-film-name").textContent="Ratr Score: "+movieTitle.toUpperCase();
+  fromCalc = false;
+  showCalc();
+});
+
+document.getElementById("btn-keep-no").addEventListener("click",function(){
+  haptic();
+  hideKeepConfirm();
+  resetAll();
+  committedTitle = movieTitle;
   document.getElementById("calc-film-name").textContent="Ratr Score: "+movieTitle.toUpperCase();
   fromCalc = false;
   showCalc();
