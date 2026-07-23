@@ -83,11 +83,16 @@ html,body{width:100%;height:100%;overflow:hidden;background:#2563EB;font-family:
 }
 #btn-use-calc{
   width:100%;height:50px;font-size:15px;font-weight:400;letter-spacing:0.8px;
+  color:#2563EB;
+  transition:transform 150ms ease, box-shadow 150ms ease;
 }
+#btn-use-calc:hover{transform:translateY(-2px) scale(1.02);}
 #btn-see-ratings{
   width:100%;height:38px;font-size:11px;font-weight:200;letter-spacing:1px;
   font-style:italic;text-transform:uppercase;
+  transition:transform 150ms ease, border-color 150ms ease;
 }
+#btn-see-ratings:hover{transform:translateY(-2px) scale(1.02);border-color:rgba(255,255,255,1);}
 
 /* ── RATINGS HISTORY ── */
 #screen-ratings{
@@ -149,6 +154,23 @@ html,body{width:100%;height:100%;overflow:hidden;background:#2563EB;font-family:
   font-style:italic;
   height:18px;line-height:18px;
   display:flex;align-items:center;
+}
+
+/* Outlined stars with proportional inner fill */
+.outlined-stars-row{
+  display:flex;align-items:center;justify-content:flex-end;gap:2px;
+}
+.outlined-star{
+  position:relative;display:inline-block;
+  color:transparent;
+  -webkit-text-stroke:1px rgba(255,255,255,0.75);
+}
+.outlined-star-fill{
+  position:absolute;left:0;top:0;
+  overflow:hidden;white-space:nowrap;
+  color:white;
+  -webkit-text-stroke:0;
+  display:block;
 }
 .ratings-empty{
   padding:60px 30px;text-align:center;
@@ -333,7 +355,11 @@ html,body{width:100%;height:100%;overflow:hidden;background:#2563EB;font-family:
   padding:16px 20px 14px;
   border-bottom:1px solid rgba(255,255,255,0.12);
 }
-.topbar-logo{font-family:"Courier New",monospace;font-size:18px;font-weight:700;color:white;letter-spacing:1px;}
+.topbar-logo{
+  font-family:"Courier New",monospace;font-size:18px;font-weight:700;color:white;letter-spacing:1px;
+  cursor:pointer;transition:opacity 150ms ease;
+}
+.topbar-logo:hover{opacity:0.7;}
 .topbar-title{
   font-size:10px;font-weight:300;color:rgba(255,255,255,0.75);
   font-family:"Courier New",monospace;letter-spacing:0.8px;
@@ -1056,6 +1082,29 @@ function proportionalStarsHTML(score, starSize, showNum){
   return html;
 }
 
+/* Outlined stars with proportional fill inside each — for metric breakdowns */
+function outlinedStarsHTML(score, starSize, showNum){
+  var size=starSize||14;
+  var h=Math.round(size*1.2);
+  var val=Math.max(0,Math.min(5,Number(score)));
+  var html="<div class='outlined-stars-row' style='height:"+h+"px'>";
+  for(var i=1;i<=5;i++){
+    var fill;
+    if(val>=i) fill=100;
+    else if(val>i-1) fill=(val-(i-1))*100;
+    else fill=0;
+    html+="<span class='outlined-star' style='font-size:"+size+"px;line-height:"+h+"px;height:"+h+"px'>"+
+            "<span class='outlined-star-fill' style='width:"+fill+"%;font-size:"+size+"px;line-height:"+h+"px'>★</span>"+
+            "★"+
+          "</span>";
+  }
+  if(showNum!==false){
+    html+="<span class='rating-score-num' style='height:"+h+"px;line-height:"+h+"px'>"+Number(score).toFixed(2)+"</span>";
+  }
+  html+="</div>";
+  return html;
+}
+
 function loadRatings(){
   var content=document.getElementById("ratings-content");
   content.innerHTML="<div class='ratings-loading'>loading your ratings…</div>";
@@ -1128,7 +1177,7 @@ var MUSIC_LABELS={"-1":"Bad","0":"Average","1":"Good","2":"Transcendent"};
 
 function metricValueHTML(def, val){
   if(val===null||val===undefined) return "<span style='font-size:11px;color:rgba(255,255,255,0.3);font-style:italic;'>—</span>";
-  if(def.type==="star") return proportionalStarsHTML(val, 13, true);
+  if(def.type==="star") return outlinedStarsHTML(val, 14, true);
   if(def.type==="music"){
     var rounded=Math.round(val);
     return "<span style='font-size:12px;color:white;font-weight:600;'>"+(MUSIC_LABELS[String(rounded)]||"—")+"</span>";
@@ -2153,6 +2202,44 @@ document.getElementById("btn-ratings-back").addEventListener("mouseout",function
   this.style.color="rgba(255,255,255,0.4)";
 });
 
+/* Return to the menu (or auth screen if not signed in) from anywhere */
+function goHome(){
+  haptic();
+  /* Slide away any stacked screens */
+  if(detailEl.style.pointerEvents==="auto") hideDetail();
+  if(ratingsEl.style.pointerEvents==="auto") hideRatings();
+  scoreEl.style.transform="translateY(100%)";
+  scoreEl.style.borderRadius="0";
+  scoreEl.style.pointerEvents="none";
+  /* Reset movie/calc stack */
+  movieEl.style.transform="translateY(0%)";
+  movieEl.style.borderRadius="0";
+  movieEl.style.pointerEvents="none";
+  scrimEl.style.backdropFilter="";
+  scrimEl.style.webkitBackdropFilter="";
+  scrimEl.style.background="rgba(0,0,0,0)";
+  fromCalc=false;
+  introActive=false;
+  introEl.style.opacity="0";
+  introEl.style.pointerEvents="none";
+  if(currentUser){
+    authEl.style.opacity="0";
+    authEl.style.pointerEvents="none";
+    menuEl.style.opacity="1";
+    menuEl.style.pointerEvents="auto";
+  } else {
+    menuEl.style.opacity="0";
+    menuEl.style.pointerEvents="none";
+    authEl.style.opacity="1";
+    authEl.style.pointerEvents="auto";
+  }
+}
+
+/* Wire every ratr logo in a topbar to go home */
+document.querySelectorAll(".topbar-logo").forEach(function(logo){
+  logo.addEventListener("click", goHome);
+});
+
 /* Detail screen back + tabs */
 document.getElementById("btn-detail-back").addEventListener("click",function(){
   haptic();
@@ -2169,7 +2256,6 @@ document.querySelectorAll(".detail-tab").forEach(function(tab){
   tab.addEventListener("click",function(){
     haptic();
     setDetailTab(tab.getAttribute("data-tab"));
-    detailEl.scrollTop=0;
   });
 });
 
