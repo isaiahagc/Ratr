@@ -6,7 +6,7 @@
 <title>RATR</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
-html,body{width:100%;height:100%;overflow:hidden;background:#2563EB;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;}
+html,body{width:100%;height:100%;overflow:hidden;background:#0B2054;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;}
 .app{position:relative;width:100%;height:100%;overflow:hidden;}
 
 @keyframes pulse{0%,100%{opacity:0;}50%{opacity:0.7;}}
@@ -15,7 +15,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:#2563EB;font-family:
 .screen{
   position:absolute;inset:0;
   display:flex;flex-direction:column;align-items:center;
-  background:#2563EB;
+  background:#0B2054;
 }
 
 /* ── INTRO ── */
@@ -32,7 +32,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:#2563EB;font-family:
   transform:translateY(0%);
   will-change:transform,border-radius;
   border-radius:0;
-  background:rgba(9,38,110,0.30);
+  background:rgba(6,16,44,0.42);
   backdrop-filter:blur(18px) brightness(0.75);
   -webkit-backdrop-filter:blur(18px) brightness(0.75);
   overflow:visible;
@@ -61,7 +61,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:#2563EB;font-family:
   opacity:0;
   pointer-events:none;
   transition:opacity 400ms ease;
-  background:rgba(9,38,110,0.30);
+  background:rgba(6,16,44,0.42);
   backdrop-filter:blur(18px) brightness(0.75);
   -webkit-backdrop-filter:blur(18px) brightness(0.75);
 }
@@ -73,7 +73,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:#2563EB;font-family:
   opacity:0;
   pointer-events:none;
   transition:opacity 400ms ease;
-  background:rgba(9,38,110,0.30);
+  background:rgba(6,16,44,0.42);
   backdrop-filter:blur(18px) brightness(0.75);
   -webkit-backdrop-filter:blur(18px) brightness(0.75);
 }
@@ -83,16 +83,16 @@ html,body{width:100%;height:100%;overflow:hidden;background:#2563EB;font-family:
 }
 #btn-use-calc{
   width:100%;height:50px;font-size:15px;font-weight:400;letter-spacing:0.8px;
-  color:#2563EB;
+  color:#0B2054;
   transition:transform 150ms ease, box-shadow 150ms ease;
 }
 #btn-use-calc:hover{transform:translateY(-2px) scale(1.02);}
-#btn-see-ratings{
+#btn-see-ratings,#btn-browse{
   width:100%;height:38px;font-size:11px;font-weight:200;letter-spacing:1px;
   font-style:italic;text-transform:uppercase;
   transition:transform 150ms ease, border-color 150ms ease;
 }
-#btn-see-ratings:hover{transform:translateY(-2px) scale(1.02);border-color:rgba(255,255,255,1);}
+#btn-see-ratings:hover,#btn-browse:hover{transform:translateY(-2px) scale(1.02);border-color:rgba(255,255,255,1);}
 
 /* ── RATINGS HISTORY ── */
 #screen-ratings{
@@ -180,6 +180,76 @@ html,body{width:100%;height:100%;overflow:hidden;background:#2563EB;font-family:
   padding:60px 30px;text-align:center;
   font-size:11px;color:rgba(255,255,255,0.45);
   font-family:"Courier New",monospace;letter-spacing:1px;
+}
+
+/* ── BROWSE OVERLAY ── */
+#screen-browse{
+  justify-content:flex-start;
+  z-index:8;
+  opacity:0;
+  pointer-events:none;
+  transition:opacity 280ms ease;
+  background:rgba(6,16,44,0.42);
+  backdrop-filter:blur(18px) brightness(0.75);
+  -webkit-backdrop-filter:blur(18px) brightness(0.75);
+  overflow:visible;
+}
+.browse-inner{
+  width:100%;max-width:520px;padding:0 20px;
+  display:flex;flex-direction:column;align-items:center;
+  margin-top:22vh;
+}
+.browse-prompt{
+  font-size:13px;font-style:italic;color:rgba(255,255,255,0.85);
+  margin-bottom:16px;text-align:center;
+}
+.browse-search-wrap{position:relative;width:100%;max-width:380px;}
+#browseInput{
+  width:100%;height:48px;padding:0 14px;
+  background:transparent;border:2px solid white;border-radius:14px;
+  outline:none;color:white;font-size:15px;caret-color:white;
+  font-family:"Courier New",monospace;letter-spacing:0.5px;text-align:center;
+}
+#browseInput::placeholder{color:rgba(255,255,255,0.4);font-family:"Courier New",monospace;}
+#browseInput.open{border-radius:14px 14px 0 0;border-bottom-color:rgba(255,255,255,0.2);}
+#browse-dropdown{
+  position:absolute;top:calc(100% - 2px);left:0;right:0;
+  background:rgba(8,20,54,0.97);
+  backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
+  border:2px solid white;border-top:none;
+  border-radius:0 0 14px 14px;
+  overflow:hidden;display:none;z-index:20;
+}
+#browse-dropdown.visible{display:block;}
+#btn-browse-close{
+  margin-top:18px;font-size:10px;letter-spacing:1px;
+  color:rgba(255,255,255,0.5);cursor:pointer;
+  font-family:"Courier New",monospace;text-transform:uppercase;
+  transition:color 150ms ease;
+}
+#btn-browse-close:hover{color:white;}
+
+/* ── UNRATED EMPTY STATE ── */
+.unrated-state{
+  display:flex;flex-direction:column;align-items:center;
+  padding:44px 30px 50px;gap:16px;
+}
+.unrated-msg{
+  font-size:13px;color:rgba(255,255,255,0.7);font-style:italic;
+  text-align:center;
+}
+.add-rating-btn{
+  width:56px;height:56px;border-radius:50%;
+  border:2px solid white;background:transparent;
+  display:flex;align-items:center;justify-content:center;
+  cursor:pointer;padding:0;
+  transition:transform 150ms ease, background 150ms ease;
+}
+.add-rating-btn:hover{transform:scale(1.08);background:rgba(255,255,255,0.1);}
+.add-rating-btn svg{display:block;}
+.add-rating-label{
+  font-size:9px;letter-spacing:1.4px;text-transform:uppercase;
+  color:rgba(255,255,255,0.5);font-family:"Courier New",monospace;
 }
 
 /* ── DETAIL SCREEN ── */
@@ -397,7 +467,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:#2563EB;font-family:
 .movie-prompt{font-size:13px;opacity:0.9;font-style:italic;}
 .calc-inner{width:100%;max-width:520px;padding:0 0 100px;color:white;}
 .topbar{
-  position:sticky;top:0;z-index:10;background:#2563EB;
+  position:sticky;top:0;z-index:10;background:#0B2054;
   display:flex;align-items:center;justify-content:space-between;
   padding:16px 20px 14px;
   border-bottom:1px solid rgba(255,255,255,0.12);
@@ -477,9 +547,9 @@ html,body{width:100%;height:100%;overflow:hidden;background:#2563EB;font-family:
   transition:background 140ms ease,border-color 140ms ease;
 }
 .music-btn:not(.selected):hover{background:white;border-color:white;}
-.music-btn:not(.selected):hover .music-label,.music-btn:not(.selected):hover .music-desc{color:#2563EB;}
+.music-btn:not(.selected):hover .music-label,.music-btn:not(.selected):hover .music-desc{color:#0B2054;}
 .music-btn.selected{background:white;border-color:white;}
-.music-btn.selected .music-label,.music-btn.selected .music-desc{color:#2563EB;}
+.music-btn.selected .music-label,.music-btn.selected .music-desc{color:#0B2054;}
 .music-label{font-size:13px;font-weight:700;color:white;letter-spacing:0.3px;flex-shrink:0;}
 .music-desc{font-size:10px;color:rgba(255,255,255,0.5);line-height:1.3;text-align:right;padding-left:12px;}
 
@@ -512,13 +582,13 @@ input.slider-input{
 input.slider-input::-webkit-slider-thumb{
   -webkit-appearance:none;
   width:36px;height:20px;border-radius:999px;
-  background:radial-gradient(circle 4.2px at 50% 50%, #2563EB 100%, transparent 100%), white;
+  background:radial-gradient(circle 4.2px at 50% 50%, #0B2054 100%, transparent 100%), white;
   transition:transform 100ms ease;
 }
 input.slider-input::-webkit-slider-thumb:active{transform:scale(1.08);}
 input.slider-input::-moz-range-thumb{
   width:36px;height:20px;border-radius:999px;border:none;
-  background:radial-gradient(circle 4.2px at 50% 50%, #2563EB 100%, transparent 100%), white;
+  background:radial-gradient(circle 4.2px at 50% 50%, #0B2054 100%, transparent 100%), white;
 }
 input.slider-input::-webkit-slider-runnable-track{background:transparent;}
 input.slider-input::-moz-range-track{background:transparent;height:0;}
@@ -553,7 +623,7 @@ input.slider-input::-moz-range-track{background:transparent;height:0;}
 }
 .btn:active{transform:scale(0.97);}
 .btn-ghost{background:transparent;border:2px solid white;color:white;}
-.btn-solid{background:white;border:2px solid white;color:#2563EB;padding:0 28px;}
+.btn-solid{background:white;border:2px solid white;color:#0B2054;padding:0 28px;}
 
 /* ── Score screen ── */
 .score-inner{
@@ -636,7 +706,20 @@ input.slider-input::-moz-range-track{background:transparent;height:0;}
 <div class="screen" id="screen-menu">
   <div class="menu-inner">
     <button class="btn btn-solid" id="btn-use-calc">USE CALCULATOR</button>
+    <button class="btn btn-ghost" id="btn-browse">Browse</button>
     <button class="btn btn-ghost" id="btn-see-ratings">See My Ratings</button>
+  </div>
+</div>
+
+<!-- BROWSE OVERLAY -->
+<div class="screen" id="screen-browse">
+  <div class="browse-inner">
+    <div class="browse-prompt">search any film</div>
+    <div class="browse-search-wrap">
+      <input id="browseInput" type="text" autocomplete="off" placeholder="film title…"/>
+      <div id="browse-dropdown"></div>
+    </div>
+    <div id="btn-browse-close">close</div>
   </div>
 </div>
 
@@ -1304,9 +1387,11 @@ function openDetail(group){
     var d=new Date(group.latest);
     ratedStr=d.toLocaleDateString(undefined,{year:"numeric",month:"short",day:"numeric"});
   }
-  var ratedLabel = group.entries.length>1
-    ? "last rated "+ratedStr
-    : "rated "+ratedStr;
+  var entryCount = group.entries ? group.entries.length : 0;
+  var ratedLabel;
+  if(entryCount===0)      ratedLabel="not rated yet";
+  else if(entryCount>1)   ratedLabel="last rated "+ratedStr;
+  else                    ratedLabel="rated "+ratedStr;
 
   header.innerHTML=posterHTML+
     "<div class='detail-title-block'>"+
@@ -1386,6 +1471,29 @@ function openDetail(group){
    use renderMetricList() so they always stay visually identical. */
 function renderMinePanel(group){
   var mine=document.getElementById("panel-mine");
+
+  /* Unrated movie — show empty state with an add button */
+  if(!group.entries || group.entries.length===0){
+    mine.innerHTML=
+      "<div class='unrated-state'>"+
+        "<div class='unrated-msg'>You haven't rated this movie yet!</div>"+
+        "<button class='add-rating-btn' id='btn-add-rating' title='rate this film'>"+
+          "<svg width='24' height='24' viewBox='0 0 24 24' fill='none' xmlns='http://www.w3.org/2000/svg'>"+
+            "<path d='M12 5V19M5 12H19' stroke='white' stroke-width='2' stroke-linecap='round'/>"+
+          "</svg>"+
+        "</button>"+
+        "<div class='add-rating-label'>rate it</div>"+
+      "</div>";
+    var addBtn=document.getElementById("btn-add-rating");
+    if(addBtn){
+      addBtn.addEventListener("click",function(){
+        haptic();
+        setDetailTab("again");
+      });
+    }
+    return;
+  }
+
   var color=scoreColor(group.avgFinal||0);
   var multi = group.entries.length>1;
 
@@ -1935,8 +2043,12 @@ function hideDetail(){
     roundCorners: true,
     onDone: function(){
       detailEl.style.pointerEvents="none";
-      /* Refresh grid so any new entries are reflected */
+      /* Refresh grid only if we came from the ratings screen */
       if(ratingsEl.style.pointerEvents==="auto") loadRatings();
+      /* If we came from browse, put focus back in the search box */
+      if(browseEl.style.pointerEvents==="auto"){
+        requestAnimationFrame(function(){ browseInput.focus(); });
+      }
     }
   });
 }
@@ -2426,6 +2538,7 @@ document.getElementById("btn-ratings-back").addEventListener("mouseout",function
   /* Returns the correct "go back" action for whatever screen is on top */
   function currentBackAction(){
     if(detailEl.style.pointerEvents==="auto") return hideDetail;
+    if(browseEl.style.pointerEvents==="auto") return hideBrowse;
     if(ratingsEl.style.pointerEvents==="auto") return hideRatings;
     if(scoreEl.style.pointerEvents==="auto") return hideScore;
     /* Calc is showing when movie has slid up out of the way */
@@ -2460,12 +2573,163 @@ document.getElementById("btn-ratings-back").addEventListener("mouseout",function
   document.addEventListener("touchend", onEnd, {passive:true});
 })();
 
+/* ─────────────────────────────────────────────
+   BROWSE
+───────────────────────────────────────────── */
+var browseEl=document.getElementById("screen-browse");
+var browseInput=document.getElementById("browseInput");
+var browseDropdown=document.getElementById("browse-dropdown");
+var browseDebounce=null;
+var browseActiveIdx=-1;
+var browseItems=[];
+
+function closeBrowseDropdown(){
+  browseDropdown.classList.remove("visible");
+  browseInput.classList.remove("open");
+  browseActiveIdx=-1;
+  browseItems=[];
+}
+
+function showBrowse(){
+  haptic();
+  menuEl.style.opacity="0";
+  menuEl.style.pointerEvents="none";
+  browseEl.style.opacity="1";
+  browseEl.style.pointerEvents="auto";
+  browseInput.value="";
+  closeBrowseDropdown();
+  requestAnimationFrame(function(){ browseInput.focus(); });
+}
+
+function hideBrowse(){
+  closeBrowseDropdown();
+  browseEl.style.opacity="0";
+  browseEl.style.pointerEvents="none";
+  menuEl.style.opacity="1";
+  menuEl.style.pointerEvents="auto";
+}
+
+function renderBrowseDropdown(results){
+  browseDropdown.innerHTML="";
+  if(!results||results.length===0){ closeBrowseDropdown(); return; }
+  browseItems=[];
+  results.slice(0,6).forEach(function(m){
+    var item=document.createElement("div");
+    item.className="dropdown-item";
+    var year=m.release_date?m.release_date.slice(0,4):"";
+    item.innerHTML="<div class='dropdown-title'>"+m.title+"</div>"+
+                   (year?"<div class='dropdown-year'>"+year+"</div>":"");
+    item.addEventListener("mousedown",function(e){
+      e.preventDefault();
+      haptic();
+      openBrowsedMovie(m.id, m.title, year, m.poster_path);
+    });
+    browseDropdown.appendChild(item);
+    browseItems.push({id:m.id,title:m.title,year:year,poster:m.poster_path});
+  });
+  browseDropdown.classList.add("visible");
+  browseInput.classList.add("open");
+  browseActiveIdx=-1;
+}
+
+function searchBrowse(query){
+  if(!query||query.length<2){ closeBrowseDropdown(); return; }
+  fetch("https://api.themoviedb.org/3/search/movie?query="+encodeURIComponent(query)+
+        "&include_adult=false&language=en-US&page=1",{
+    headers:{"Authorization":"Bearer "+TMDB_TOKEN,"Content-Type":"application/json"}
+  }).then(function(r){ return r.ok?r.json():null; })
+   .then(function(d){ renderBrowseDropdown(d?d.results:null); })
+   .catch(function(){ closeBrowseDropdown(); });
+}
+
+/* Open a browsed movie — pulls the user's own entries for it, if any */
+function openBrowsedMovie(tmdbIdVal, title, year, posterPath){
+  var displayTitle = title + (year?" ("+year+")":"");
+  var group={
+    key:"t"+tmdbIdVal,
+    tmdb_id:tmdbIdVal,
+    movie_title:displayTitle,
+    entries:[],
+    latest:null,
+    _poster:posterPath||null,
+    avgMetrics:{},
+    avgFinal:0
+  };
+
+  closeBrowseDropdown();
+
+  /* If signed in, look for the user's existing ratings of this film */
+  if(currentUser){
+    supaFetch("/rest/v1/ratings?select=*&user_id=eq."+currentUser.id+
+              "&tmdb_id=eq."+tmdbIdVal+"&order=created_at.desc",{
+      method:"GET",
+      headers:{
+        "apikey":SUPA_KEY,
+        "Authorization":"Bearer "+(currentAccessToken||SUPA_KEY),
+        "Content-Type":"application/json",
+        "Prefer":"return=representation"
+      }
+    }).then(function(r){ return r.json(); })
+    .then(function(rows){
+      if(rows && rows.length){
+        group.entries=rows;
+        group.latest=rows[0].created_at;
+        /* Prefer the stored title so it matches their ratings screen */
+        group.movie_title=rows[0].movie_title||displayTitle;
+        recomputeGroupAverages(group);
+      }
+      openDetail(group);
+    }).catch(function(){ openDetail(group); });
+  } else {
+    openDetail(group);
+  }
+}
+
+browseInput.addEventListener("input",function(){
+  var q=browseInput.value.trim();
+  clearTimeout(browseDebounce);
+  browseDebounce=setTimeout(function(){ searchBrowse(q); },200);
+});
+
+browseInput.addEventListener("keydown",function(e){
+  if(e.key==="ArrowDown"){
+    e.preventDefault();
+    browseActiveIdx=Math.min(browseActiveIdx+1, browseItems.length-1);
+    Array.from(browseDropdown.querySelectorAll(".dropdown-item")).forEach(function(el,i){
+      el.classList.toggle("active",i===browseActiveIdx);
+    });
+  } else if(e.key==="ArrowUp"){
+    e.preventDefault();
+    browseActiveIdx=Math.max(browseActiveIdx-1,-1);
+    Array.from(browseDropdown.querySelectorAll(".dropdown-item")).forEach(function(el,i){
+      el.classList.toggle("active",i===browseActiveIdx);
+    });
+  } else if(e.key==="Enter"){
+    if(browseActiveIdx>=0 && browseItems[browseActiveIdx]){
+      haptic();
+      var m=browseItems[browseActiveIdx];
+      openBrowsedMovie(m.id,m.title,m.year,m.poster);
+    }
+  } else if(e.key==="Escape"){
+    closeBrowseDropdown();
+  }
+});
+
+document.getElementById("btn-browse").addEventListener("click", showBrowse);
+document.getElementById("btn-browse-close").addEventListener("click",function(){
+  haptic();
+  hideBrowse();
+});
+
 /* Return to the menu (or auth screen if not signed in) from anywhere */
 function goHome(){
   haptic();
   /* Slide away any stacked screens */
   if(detailEl.style.pointerEvents==="auto") hideDetail();
   if(ratingsEl.style.pointerEvents==="auto") hideRatings();
+  browseEl.style.opacity="0";
+  browseEl.style.pointerEvents="none";
+  closeBrowseDropdown();
   scoreEl.style.transform="translateY(100%)";
   scoreEl.style.borderRadius="0";
   scoreEl.style.pointerEvents="none";
