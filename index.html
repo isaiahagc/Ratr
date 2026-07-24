@@ -16,10 +16,11 @@ html,body{width:100%;height:100%;overflow:hidden;background:#0B2054;font-family:
   position:absolute;inset:0;
   display:flex;flex-direction:column;align-items:center;
   background:#0B2054;
+  padding-bottom:76px; /* reserve space for the persistent footer */
 }
 
 /* ── INTRO ── */
-#screen-intro{justify-content:center;z-index:4;transition:opacity 500ms ease;pointer-events:auto;}
+#screen-intro{justify-content:center;z-index:4;transition:opacity 500ms ease;pointer-events:auto;padding-bottom:0;}
 .intro-inner{display:flex;flex-direction:column;align-items:center;text-align:center;gap:4px;}
 .welcome{color:white;font-size:14px;font-weight:400;letter-spacing:0.4px;}
 .ratr-logo{color:white;font-size:72px;font-weight:700;line-height:0.95;font-family:"Courier New",monospace;}
@@ -29,6 +30,9 @@ html,body{width:100%;height:100%;overflow:hidden;background:#0B2054;font-family:
 #screen-movie{
   justify-content:center;
   z-index:2;
+  opacity:0;
+  pointer-events:none;
+  transition:opacity 300ms ease;
   transform:translateY(0%);
   will-change:transform,border-radius;
   border-radius:0;
@@ -41,8 +45,16 @@ html,body{width:100%;height:100%;overflow:hidden;background:#0B2054;font-family:
 /* ── CALC ── */
 #screen-calc{
   justify-content:flex-start;
-  overflow-y:auto;-webkit-overflow-scrolling:touch;
+  overflow:hidden;
   z-index:1;
+  opacity:0;
+  pointer-events:none;
+  transition:opacity 300ms ease;
+}
+.calc-scroll{
+  width:100%;flex:1;min-height:0;
+  overflow-y:auto;-webkit-overflow-scrolling:touch;
+  display:flex;flex-direction:column;align-items:center;
 }
 
 /* ── SCORE ── */
@@ -66,47 +78,133 @@ html,body{width:100%;height:100%;overflow:hidden;background:#0B2054;font-family:
   -webkit-backdrop-filter:blur(18px) brightness(0.75);
 }
 
-/* ── MENU (post sign-in) ── */
-#screen-menu{
-  justify-content:center;
-  z-index:3;
+/* ── ACTIVITY (landing screen) ── */
+#screen-activity{
+  justify-content:flex-start;
+  overflow:hidden;
+  z-index:2;
   opacity:0;
   pointer-events:none;
-  transition:opacity 400ms ease;
-  background:rgba(6,16,44,0.42);
-  backdrop-filter:blur(18px) brightness(0.75);
-  -webkit-backdrop-filter:blur(18px) brightness(0.75);
+  transition:opacity 300ms ease;
+  background:#0B2054;
 }
-.menu-inner{
-  display:flex;flex-direction:column;align-items:center;
-  gap:14px;width:70vw;max-width:340px;
-}
-#btn-use-calc{
-  width:100%;height:50px;font-size:15px;font-weight:400;letter-spacing:0.8px;
-  color:#0B2054;
-  transition:transform 150ms ease, box-shadow 150ms ease;
-}
-#btn-use-calc:hover{transform:translateY(-2px) scale(1.02);}
-#btn-see-ratings,#btn-browse{
-  width:100%;height:38px;font-size:11px;font-weight:200;letter-spacing:1px;
-  font-style:italic;text-transform:uppercase;
-  transition:transform 150ms ease, border-color 150ms ease;
-}
-#btn-see-ratings:hover,#btn-browse:hover{transform:translateY(-2px) scale(1.02);border-color:rgba(255,255,255,1);}
-
-/* ── RATINGS HISTORY ── */
-#screen-ratings{
-  justify-content:flex-start;
+.activity-scroll{
+  width:100%;flex:1;min-height:0;
   overflow-y:auto;-webkit-overflow-scrolling:touch;
+  display:flex;flex-direction:column;align-items:center;
+}
+.activity-inner{width:100%;max-width:560px;padding:0 0 30px;color:white;}
+#screen-activity > .topbar{max-width:560px;margin:0 auto;}
+.activity-search-section{padding:18px 20px 6px;}
+.inline-search-wrap{position:relative;width:100%;}
+.inline-search-input{
+  width:100%;height:44px;padding:0 14px;
+  background:rgba(255,255,255,0.06);border:1.5px solid rgba(255,255,255,0.35);border-radius:12px;
+  outline:none;color:white;font-size:14px;caret-color:white;
+  font-family:"Courier New",monospace;letter-spacing:0.4px;
+  transition:border-color 150ms ease;
+}
+.inline-search-input:focus{border-color:rgba(255,255,255,0.8);}
+.inline-search-input::placeholder{color:rgba(255,255,255,0.4);font-style:italic;font-family:system-ui,-apple-system,sans-serif;}
+.inline-search-input.open{border-radius:12px 12px 0 0;border-bottom-color:transparent;}
+.inline-search-dropdown{
+  position:absolute;top:calc(100% - 1px);left:0;right:0;
+  background:rgba(8,20,54,0.98);
+  backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
+  border:1.5px solid rgba(255,255,255,0.35);border-top:none;
+  border-radius:0 0 12px 12px;
+  overflow:hidden;display:none;z-index:20;
+}
+.inline-search-dropdown.visible{display:block;}
+
+/* ── SEARCH RESULTS (Netflix-style, overlay) ── */
+#screen-search-results{
+  justify-content:flex-start;
+  overflow:hidden;
   z-index:6;
   transform:translateY(100%);
   will-change:transform,border-radius;
   border-radius:0;
   background:#0B2054;
 }
+.search-results-scroll{
+  width:100%;flex:1;min-height:0;
+  overflow-y:auto;-webkit-overflow-scrolling:touch;
+  display:flex;flex-direction:column;align-items:center;
+}
+.search-results-inner{width:100%;max-width:560px;padding:0 0 30px;color:white;}
+#screen-search-results > .topbar{max-width:560px;margin:0 auto;}
+#search-results-title{
+  padding:16px 20px 4px;
+  font-size:11px;color:rgba(255,255,255,0.5);font-style:italic;
+  font-family:system-ui,-apple-system,sans-serif;
+}
+
+/* ── GUEST SIGN-IN GATE ── */
+.guest-gate{
+  display:flex;flex-direction:column;align-items:center;gap:14px;
+  padding:22px 30px 40px;
+}
+.guest-gate-msg{
+  font-size:12px;color:rgba(255,255,255,0.6);font-style:italic;text-align:center;
+}
+#btn-detail-signin{padding:0 26px;height:38px;font-size:11px;letter-spacing:0.8px;}
+.activity-guest-gate{
+  display:flex;flex-direction:column;align-items:center;gap:16px;
+  padding:60px 30px;
+}
+.activity-guest-msg{
+  font-size:13px;color:rgba(255,255,255,0.65);font-style:italic;text-align:center;
+}
+
+/* ── FOOTER (persistent nav) ── */
+#app-footer{
+  position:fixed;left:0;right:0;bottom:0;
+  z-index:50;
+  background:#0B2054;
+  display:flex;align-items:center;justify-content:space-between;
+  padding:14px 24px 16px;
+  border-top:1px solid rgba(255,255,255,0.12);
+  opacity:0;pointer-events:none;
+  transition:opacity 300ms ease;
+}
+#app-footer.visible{opacity:1;pointer-events:auto;}
+.footer-icon-btn{
+  background:transparent;border:none;cursor:pointer;
+  width:42px;height:42px;display:flex;align-items:center;justify-content:center;
+  padding:0;border-radius:50%;flex-shrink:0;
+  transition:background 150ms ease, transform 150ms ease;
+}
+.footer-icon-btn:hover{background:rgba(255,255,255,0.1);transform:scale(1.08);}
+.footer-icon-btn svg{display:block;}
+#footer-calculator{
+  flex:1;max-width:230px;margin:0 18px;
+  height:42px;border-radius:14px;
+  background:white;color:#0B2054;border:none;
+  font-family:inherit;font-size:12px;font-weight:700;letter-spacing:1.2px;
+  cursor:pointer;text-transform:uppercase;
+  transition:transform 150ms ease;
+}
+#footer-calculator:hover{transform:translateY(-2px) scale(1.02);}
+
+
+/* ── RATINGS HISTORY ── */
+#screen-ratings{
+  justify-content:flex-start;
+  overflow:hidden;
+  z-index:2;
+  opacity:0;
+  pointer-events:none;
+  transition:opacity 300ms ease;
+  background:#0B2054;
+}
+.ratings-scroll{
+  width:100%;flex:1;min-height:0;
+  overflow-y:auto;-webkit-overflow-scrolling:touch;
+  display:flex;flex-direction:column;align-items:center;
+}
 .ratings-inner{width:100%;max-width:560px;padding:0 0 60px;color:white;}
-.ratings-inner .topbar{justify-content:space-between;}
-.ratings-inner .topbar-logo{flex:1;}
+#screen-ratings .topbar-logo{flex:1;}
 .ratings-grid{
   display:grid;grid-template-columns:repeat(3,1fr);
   gap:12px;padding:20px;
@@ -185,7 +283,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:#0B2054;font-family:
 /* ── BROWSE OVERLAY ── */
 #screen-browse{
   justify-content:flex-start;
-  z-index:8;
+  z-index:2;
   opacity:0;
   pointer-events:none;
   transition:opacity 280ms ease;
@@ -255,17 +353,21 @@ html,body{width:100%;height:100%;overflow:hidden;background:#0B2054;font-family:
 /* ── DETAIL SCREEN ── */
 #screen-detail{
   justify-content:flex-start;
-  overflow-y:auto;-webkit-overflow-scrolling:touch;
+  overflow:hidden;
   z-index:7;
   transform:translateY(100%);
   will-change:transform,border-radius;
   border-radius:0;
   background:#0B2054;
 }
+.detail-scroll{
+  width:100%;flex:1;min-height:0;
+  overflow-y:auto;-webkit-overflow-scrolling:touch;
+  display:flex;flex-direction:column;align-items:center;
+}
 #screen-detail .topbar{background:#0B2054;}
 #screen-ratings .topbar{background:#0B2054;}
 .detail-inner{width:100%;max-width:560px;padding:0 0 80px;color:white;}
-.detail-inner .topbar{justify-content:space-between;}
 .detail-header{
   display:flex;gap:16px;padding:20px;align-items:flex-start;
 }
@@ -467,11 +569,14 @@ html,body{width:100%;height:100%;overflow:hidden;background:#0B2054;font-family:
 .movie-prompt{font-size:13px;opacity:0.9;font-style:italic;}
 .calc-inner{width:100%;max-width:520px;padding:0 0 100px;color:white;}
 .topbar{
-  position:sticky;top:0;z-index:10;background:#0B2054;
+  width:100%;flex-shrink:0;box-sizing:border-box;background:#0B2054;
   display:flex;align-items:center;justify-content:space-between;
   padding:16px 20px 14px;
   border-bottom:1px solid rgba(255,255,255,0.12);
 }
+#screen-calc > .topbar{max-width:520px;margin:0 auto;}
+#screen-ratings > .topbar,
+#screen-detail > .topbar{max-width:560px;margin:0 auto;}
 .topbar-logo{
   font-family:"Courier New",monospace;font-size:18px;font-weight:700;color:white;letter-spacing:1px;
   cursor:pointer;transition:opacity 150ms ease;
@@ -702,12 +807,23 @@ input.slider-input::-moz-range-track{background:transparent;height:0;}
   </div>
 </div>
 
-<!-- MENU SCREEN (after sign in) -->
-<div class="screen" id="screen-menu">
-  <div class="menu-inner">
-    <button class="btn btn-solid" id="btn-use-calc">USE CALCULATOR</button>
-    <button class="btn btn-ghost" id="btn-browse">Browse</button>
-    <button class="btn btn-ghost" id="btn-see-ratings">See My Ratings</button>
+<!-- ACTIVITY SCREEN (landing page) -->
+<div class="screen" id="screen-activity">
+  <div class="topbar">
+    <div class="topbar-logo">ratr</div>
+  </div>
+  <div class="activity-scroll">
+    <div class="activity-inner">
+      <div class="activity-search-section">
+        <div class="inline-search-wrap">
+          <input id="activityInput" class="inline-search-input" type="text" autocomplete="off" placeholder="search any movie"/>
+          <div id="activity-dropdown" class="inline-search-dropdown"></div>
+        </div>
+      </div>
+      <div id="activity-content">
+        <div class="ratings-loading">loading your activity…</div>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -725,14 +841,15 @@ input.slider-input::-moz-range-track{background:transparent;height:0;}
 
 <!-- RATINGS HISTORY SCREEN -->
 <div class="screen" id="screen-ratings">
-  <div class="ratings-inner">
-    <div class="topbar">
-      <div class="topbar-logo">ratr</div>
-      <div id="btn-ratings-back" style="font-size:9px;color:rgba(255,255,255,0.4);font-family:'Courier New',monospace;letter-spacing:0.8px;cursor:pointer;text-transform:uppercase;padding:4px 12px 4px 0;transition:color 150ms;">back</div>
-      <div id="btn-ratings-signout" style="font-size:9px;color:rgba(255,255,255,0.4);font-family:'Courier New',monospace;letter-spacing:0.8px;cursor:pointer;text-transform:uppercase;padding:4px 0;transition:color 150ms;">sign out</div>
-    </div>
-    <div id="ratings-content">
-      <div class="ratings-loading">loading your ratings…</div>
+  <div class="topbar">
+    <div class="topbar-logo">ratr</div>
+    <div id="btn-ratings-signout" style="font-size:9px;color:rgba(255,255,255,0.4);font-family:'Courier New',monospace;letter-spacing:0.8px;cursor:pointer;text-transform:uppercase;padding:4px 0;transition:color 150ms;">sign out</div>
+  </div>
+  <div class="ratings-scroll">
+    <div class="ratings-inner">
+      <div id="ratings-content">
+        <div class="ratings-loading">loading your ratings…</div>
+      </div>
     </div>
   </div>
 </div>
@@ -750,12 +867,13 @@ input.slider-input::-moz-range-track{background:transparent;height:0;}
 
 <!-- CALC -->
 <div class="screen" id="screen-calc">
-  <div class="calc-inner">
-    <div class="topbar">
-      <div class="topbar-logo">ratr</div>
-      <div class="topbar-title" id="calc-film-name" title="tap to change film"></div>
-      <div id="btn-signout" style="font-size:9px;color:rgba(255,255,255,0.4);font-family:'Courier New',monospace;letter-spacing:0.8px;cursor:pointer;text-transform:uppercase;padding:4px 0 4px 12px;flex-shrink:0;transition:color 150ms;" title="sign out">out</div>
-    </div>
+  <div class="topbar">
+    <div class="topbar-logo">ratr</div>
+    <div class="topbar-title" id="calc-film-name" title="tap to change film"></div>
+    <div id="btn-signout" style="font-size:9px;color:rgba(255,255,255,0.4);font-family:'Courier New',monospace;letter-spacing:0.8px;cursor:pointer;text-transform:uppercase;padding:4px 0 4px 12px;flex-shrink:0;transition:color 150ms;" title="sign out">out</div>
+  </div>
+  <div class="calc-scroll">
+    <div class="calc-inner">
 
     <div class="section">
       <div class="section-header">The Craft</div>
@@ -899,6 +1017,7 @@ input.slider-input::-moz-range-track{background:transparent;height:0;}
       <button class="btn btn-ghost" id="btn-calc-back">Back</button>
       <button class="btn btn-solid" id="btn-calc-submit">Submit</button>
     </div>
+    </div>
   </div>
 </div>
 
@@ -927,23 +1046,39 @@ input.slider-input::-moz-range-track{background:transparent;height:0;}
   </div>
 </div>
 
+<!-- SEARCH RESULTS SCREEN -->
+<div class="screen" id="screen-search-results">
+  <div class="topbar">
+    <div class="topbar-logo">ratr</div>
+    <div id="btn-search-results-back" style="font-size:9px;color:rgba(255,255,255,0.4);font-family:'Courier New',monospace;letter-spacing:0.8px;cursor:pointer;text-transform:uppercase;padding:4px 0;transition:color 150ms;">back</div>
+  </div>
+  <div class="search-results-scroll">
+    <div class="search-results-inner">
+      <div id="search-results-title"></div>
+      <div id="search-results-content"></div>
+    </div>
+  </div>
+</div>
+
 <!-- DETAIL SCREEN -->
 <div class="screen" id="screen-detail">
-  <div class="detail-inner">
-    <div class="topbar">
-      <div class="topbar-logo">ratr</div>
-      <div id="btn-detail-back" style="font-size:9px;color:rgba(255,255,255,0.4);font-family:'Courier New',monospace;letter-spacing:0.8px;cursor:pointer;text-transform:uppercase;padding:4px 0;transition:color 150ms;">back</div>
+  <div class="topbar">
+    <div class="topbar-logo">ratr</div>
+    <div id="btn-detail-back" style="font-size:9px;color:rgba(255,255,255,0.4);font-family:'Courier New',monospace;letter-spacing:0.8px;cursor:pointer;text-transform:uppercase;padding:4px 0;transition:color 150ms;">back</div>
+  </div>
+  <div class="detail-scroll">
+    <div class="detail-inner">
+      <div class="detail-header" id="detail-header"></div>
+      <div class="detail-info" id="detail-info"></div>
+      <div class="detail-tabs">
+        <div class="detail-tab active" data-tab="mine">My Ratr Score</div>
+        <div class="detail-tab" data-tab="avg">Avg Ratr Score</div>
+        <div class="detail-tab" data-tab="again">Rate Again</div>
+      </div>
+      <div class="detail-panel active" id="panel-mine"></div>
+      <div class="detail-panel" id="panel-avg"></div>
+      <div class="detail-panel" id="panel-again"></div>
     </div>
-    <div class="detail-header" id="detail-header"></div>
-    <div class="detail-info" id="detail-info"></div>
-    <div class="detail-tabs">
-      <div class="detail-tab active" data-tab="mine">My Ratr Score</div>
-      <div class="detail-tab" data-tab="avg">Avg Ratr Score</div>
-      <div class="detail-tab" data-tab="again">Rate Again</div>
-    </div>
-    <div class="detail-panel active" id="panel-mine"></div>
-    <div class="detail-panel" id="panel-avg"></div>
-    <div class="detail-panel" id="panel-again"></div>
   </div>
 </div>
 
@@ -979,6 +1114,23 @@ input.slider-input::-moz-range-track{background:transparent;height:0;}
     <input id="num-input" type="number" min="0" max="100" inputmode="numeric" autocomplete="off"/>
     <div id="num-hint">press enter to confirm</div>
   </div>
+</div>
+
+<!-- PERSISTENT FOOTER NAV -->
+<div id="app-footer">
+  <button class="footer-icon-btn" id="footer-browse" title="browse">
+    <svg width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="9.5" cy="9.5" r="6.5" stroke="white" stroke-width="2"/>
+      <path d="M18 18L14.2 14.2" stroke="white" stroke-width="2" stroke-linecap="round"/>
+    </svg>
+  </button>
+  <button id="footer-calculator">Calculator</button>
+  <button class="footer-icon-btn" id="footer-profile" title="profile">
+    <svg width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="11" cy="7.2" r="4" stroke="white" stroke-width="2"/>
+      <path d="M2.8 20c0-4.4 3.7-7.5 8.2-7.5s8.2 3.1 8.2 7.5" stroke="white" stroke-width="2" stroke-linecap="round"/>
+    </svg>
+  </button>
 </div>
 
 </div>
@@ -1235,14 +1387,12 @@ function outlinedStarsHTML(score, starSize, showNum){
   return html;
 }
 
-function loadRatings(){
-  var content=document.getElementById("ratings-content");
-  content.innerHTML="<div class='ratings-loading'>loading your ratings…</div>";
-  if(!currentUser){
-    content.innerHTML="<div class='ratings-empty'>sign in to see your ratings</div>";
-    return;
-  }
-  supaFetch("/rest/v1/ratings?select=*&user_id=eq."+currentUser.id+"&order=created_at.desc",{
+/* Fetch the signed-in user's ratings and group them by movie.
+   Shared by both My Ratings and Activity. Resolves to an array of
+   movie groups (each with entries[], avgMetrics, avgFinal, _poster),
+   sorted most-recently-rated first. */
+function fetchAndGroupUserRatings(){
+  return supaFetch("/rest/v1/ratings?select=*&user_id=eq."+currentUser.id+"&order=created_at.desc",{
     method:"GET",
     headers:{
       "apikey":SUPA_KEY,
@@ -1252,10 +1402,7 @@ function loadRatings(){
     }
   }).then(function(r){ return r.json(); })
   .then(function(rows){
-    if(!rows||rows.length===0){
-      content.innerHTML="<div class='ratings-empty'>no ratings yet — go rate something</div>";
-      return;
-    }
+    if(!rows||rows.length===0) return [];
 
     /* Group entries by movie (tmdb_id when present, else title) */
     var groups={}, order=[];
@@ -1278,55 +1425,88 @@ function loadRatings(){
     /* Compute each group's personal average across all metrics */
     var movies=order.map(function(k){
       var g=groups[k];
-      var sums={}, counts={};
-      METRIC_DEFS.forEach(function(d){ sums[d.key]=0; counts[d.key]=0; });
-      var finalSum=0, finalCount=0;
-      g.entries.forEach(function(e){
-        METRIC_DEFS.forEach(function(d){
-          var v=e[d.key];
-          if(v!==null&&v!==undefined){ sums[d.key]+=Number(v); counts[d.key]++; }
-        });
-        if(e.final_score!==null&&e.final_score!==undefined){ finalSum+=Number(e.final_score); finalCount++; }
-      });
-      var avgObj={};
-      METRIC_DEFS.forEach(function(d){
-        avgObj[d.key]= counts[d.key]>0 ? sums[d.key]/counts[d.key] : null;
-      });
-      g.avgMetrics=avgObj;
-      g.avgFinal = finalCount>0 ? finalSum/finalCount : 0;
+      recomputeGroupAverages(g);
       return g;
     });
 
+    /* Sort by most recently rated */
+    movies.sort(function(a,b){ return (b.latest||"").localeCompare(a.latest||""); });
+
     return Promise.all(movies.map(function(g){
       return fetchPoster(g.tmdb_id).then(function(p){ g._poster=p; return g; });
-    })).then(function(withPosters){
-      var grid=document.createElement("div");
-      grid.className="ratings-grid";
-      withPosters.forEach(function(g){
-        var card=document.createElement("div");
-        card.className="rating-card";
-        var posterHTML;
-        if(g._poster){
-          posterHTML="<img class='rating-poster' src='https://image.tmdb.org/t/p/w342"+g._poster+"' alt=''/>";
-        } else {
-          posterHTML="<div class='rating-poster-fallback'>"+(g.movie_title||"untitled")+"</div>";
-        }
-        var countBadge = g.entries.length>1
-          ? "<div class='rating-count-badge'>"+g.entries.length+" entries</div>"
-          : "";
-        card.innerHTML=posterHTML+proportionalStarsHTML(g.avgFinal||0, 16, true)+countBadge;
-        card.addEventListener("click",function(){
-          haptic();
-          openDetail(g);
-        });
-        grid.appendChild(card);
-      });
-      content.innerHTML="";
-      content.appendChild(grid);
+    }));
+  });
+}
+
+/* Renders a grid of movie groups into a container, wiring up detail clicks */
+function renderRatingsGrid(container, groups){
+  var grid=document.createElement("div");
+  grid.className="ratings-grid";
+  groups.forEach(function(g){
+    var card=document.createElement("div");
+    card.className="rating-card";
+    var posterHTML;
+    if(g._poster){
+      posterHTML="<img class='rating-poster' src='https://image.tmdb.org/t/p/w342"+g._poster+"' alt=''/>";
+    } else {
+      posterHTML="<div class='rating-poster-fallback'>"+(g.movie_title||"untitled")+"</div>";
+    }
+    var countBadge = g.entries.length>1
+      ? "<div class='rating-count-badge'>"+g.entries.length+" entries</div>"
+      : "";
+    card.innerHTML=posterHTML+proportionalStarsHTML(g.avgFinal||0, 16, true)+countBadge;
+    card.addEventListener("click",function(){
+      haptic();
+      openDetail(g);
     });
+    grid.appendChild(card);
+  });
+  container.innerHTML="";
+  container.appendChild(grid);
+}
+
+function loadRatings(){
+  var content=document.getElementById("ratings-content");
+  content.innerHTML="<div class='ratings-loading'>loading your ratings…</div>";
+  if(!currentUser){
+    content.innerHTML="<div class='ratings-empty'>sign in to see your ratings</div>";
+    return;
+  }
+  fetchAndGroupUserRatings().then(function(groups){
+    if(!groups||groups.length===0){
+      content.innerHTML="<div class='ratings-empty'>no ratings yet — go rate something</div>";
+      return;
+    }
+    renderRatingsGrid(content, groups);
   }).catch(function(e){
     console.error("[ratr] ratings load failed:",e);
     content.innerHTML="<div class='ratings-empty'>couldn't load your ratings</div>";
+  });
+}
+
+/* ── ACTIVITY (landing screen) ── */
+function loadActivity(){
+  var content=document.getElementById("activity-content");
+  if(!currentUser){
+    content.innerHTML=
+      "<div class='activity-guest-gate'>"+
+        "<div class='activity-guest-msg'>Sign in to see your recent activity and track your ratings</div>"+
+        "<button class='btn btn-solid' id='btn-activity-signin'>Sign In</button>"+
+      "</div>";
+    var b=document.getElementById("btn-activity-signin");
+    if(b) b.addEventListener("click",function(){ haptic(); showBase('auth'); });
+    return;
+  }
+  content.innerHTML="<div class='ratings-loading'>loading your activity…</div>";
+  fetchAndGroupUserRatings().then(function(groups){
+    if(!groups||groups.length===0){
+      content.innerHTML="<div class='ratings-empty'>no ratings yet — search for a movie above or use the calculator</div>";
+      return;
+    }
+    renderRatingsGrid(content, groups);
+  }).catch(function(e){
+    console.error("[ratr] activity load failed:",e);
+    content.innerHTML="<div class='ratings-empty'>couldn't load your activity</div>";
   });
 }
 
@@ -1471,6 +1651,25 @@ function openDetail(group){
    use renderMetricList() so they always stay visually identical. */
 function renderMinePanel(group){
   var mine=document.getElementById("panel-mine");
+  var isGuest = !currentUser;
+  var guestGateHTML = isGuest
+    ? "<div class='guest-gate'>"+
+        "<div class='guest-gate-msg'>Sign in to save and track your ratings</div>"+
+        "<button class='btn btn-solid' id='btn-detail-signin'>Sign In</button>"+
+      "</div>"
+    : "";
+
+  function wireGuestGate(){
+    if(!isGuest) return;
+    var signinBtn=document.getElementById("btn-detail-signin");
+    if(signinBtn){
+      signinBtn.addEventListener("click",function(){
+        haptic();
+        hideDetail();
+        setTimeout(function(){ showBase('auth'); }, 350);
+      });
+    }
+  }
 
   /* Unrated movie — show empty state with an add button */
   if(!group.entries || group.entries.length===0){
@@ -1483,7 +1682,7 @@ function renderMinePanel(group){
           "</svg>"+
         "</button>"+
         "<div class='add-rating-label'>rate it</div>"+
-      "</div>";
+      "</div>" + guestGateHTML;
     var addBtn=document.getElementById("btn-add-rating");
     if(addBtn){
       addBtn.addEventListener("click",function(){
@@ -1491,6 +1690,7 @@ function renderMinePanel(group){
         setDetailTab("again");
       });
     }
+    wireGuestGate();
     return;
   }
 
@@ -1521,6 +1721,8 @@ function renderMinePanel(group){
     html+=renderMetricList(group.entries[0]);
   }
 
+  html+=guestGateHTML;
+
   mine.innerHTML=html;
 
   if(multi){
@@ -1538,6 +1740,7 @@ function renderMinePanel(group){
     });
     renderEntriesList(group);
   }
+  wireGuestGate();
 }
 
 /* The list of individual entries, newest first */
@@ -1955,20 +2158,21 @@ STAR_KEYS.forEach(function(k){ratings[k]=0; lastTap[k]=null;});
 ───────────────────────────────────────────── */
 var introEl  = document.getElementById("screen-intro");
 var authEl   = document.getElementById("screen-auth");
-var menuEl   = document.getElementById("screen-menu");
+var activityEl = document.getElementById("screen-activity");
 var ratingsEl= document.getElementById("screen-ratings");
+var searchResultsEl = document.getElementById("screen-search-results");
 var detailEl = document.getElementById("screen-detail");
 var movieEl  = document.getElementById("screen-movie");
 var calcEl   = document.getElementById("screen-calc");
 var scoreEl  = document.getElementById("screen-score");
 var scrimEl  = document.getElementById("slide-scrim");
+var footerEl = document.getElementById("app-footer");
 
-/* Movie sits at 0% (visible) but intro covers it on top.
-   Calc is behind movie. Score starts off the bottom. */
-ratingsEl.style.transform = "translateY(100%)";
+/* Overlays start off the bottom of the screen.
+   Base-layer visibility (intro/activity/ratings/browse/calc/auth)
+   is handled entirely by CSS defaults + showBase(). */
 detailEl.style.transform = "translateY(100%)";
-movieEl.style.transform  = "translateY(0%)";
-movieEl.style.pointerEvents = "none";
+searchResultsEl.style.transform = "translateY(100%)";
 scoreEl.style.transform  = "translateY(100%)";
 
 /* ─────────────────────────────────────────────
@@ -1980,52 +2184,75 @@ function runSpring(opts){
   currentCancel = springPhysics(opts);
 }
 
-/* Tracks whether movie screen was opened from calc (title tap) or from intro */
+/* Tracks whether movie screen was opened from calc (title tap) or from a base screen */
 var fromCalc = false;
 
-/* Show the post-signin menu */
-function showMenu(){
+/* ─────────────────────────────────────────────
+   BASE LAYER NAVIGATION
+   activity / ratings / browse / calc / auth are peer
+   "home" destinations, faded between (no slide).
+   detail / search-results / score are overlays that
+   slide up on top of whichever base layer is active.
+───────────────────────────────────────────── */
+var baseLayers = null;
+var currentBase = null;
+var previousBase = null;
+
+function registerBaseLayers(){
+  baseLayers = {
+    activity: [activityEl],
+    ratings: [ratingsEl],
+    browse: [browseEl],
+    calc: [movieEl, calcEl],
+    auth: [authEl]
+  };
+}
+
+function showBase(name){
+  if(!baseLayers) registerBaseLayers();
+  if(name!==currentBase){ previousBase = currentBase; }
+  currentBase = name;
+  Object.keys(baseLayers).forEach(function(k){
+    var show=(k===name);
+    baseLayers[k].forEach(function(el){
+      el.style.opacity = show?"1":"0";
+      el.style.pointerEvents = show?"auto":"none";
+    });
+  });
   introEl.style.opacity="0";
   introEl.style.pointerEvents="none";
-  authEl.style.opacity="0";
-  authEl.style.pointerEvents="none";
-  menuEl.style.opacity="1";
-  menuEl.style.pointerEvents="auto";
+  introActive=false;
+  footerEl.classList.add("visible");
 }
 
-function hideMenu(){
-  menuEl.style.opacity="0";
-  menuEl.style.pointerEvents="none";
+/* Reset the movie/calc flow to a fresh title-input state and show it */
+function enterCalculatorFresh(){
+  fromCalc=false;
+  movieEl.style.transform="translateY(0%)";
+  movieEl.style.borderRadius="0";
+  scrimEl.style.backdropFilter="";
+  scrimEl.style.webkitBackdropFilter="";
+  scrimEl.style.background="rgba(0,0,0,0)";
+  hideKeepConfirm();
+  showBase('calc');
+  movieEl.style.pointerEvents="auto";
+  requestAnimationFrame(function(){ movieInput.focus(); });
 }
 
-/* Ratings history slides up */
+/* My Ratings — now a base layer, simple fade */
 function showRatings(){
-  ratingsEl.style.pointerEvents="auto";
   loadRatings();
-  runSpring({
-    el: ratingsEl,
-    from: 100, to: 0,
-    vel: 8,
-    stiffness: 300, damping: 30, mass: 1,
-    roundCorners: true
-  });
+  showBase('ratings');
 }
 
 function hideRatings(){
-  runSpring({
-    el: ratingsEl,
-    from: 0, to: 100,
-    stiffness: 280, damping: 32, mass: 1,
-    roundCorners: true,
-    onDone: function(){
-      ratingsEl.style.pointerEvents="none";
-    }
-  });
+  /* No-op kept for compatibility; navigation now goes through showBase */
 }
 
 function showDetail(){
   detailEl.style.pointerEvents="auto";
-  detailEl.scrollTop=0;
+  var ds=document.querySelector("#screen-detail .detail-scroll");
+  if(ds) ds.scrollTop=0;
   runSpring({
     el: detailEl,
     from: 100, to: 0,
@@ -2043,8 +2270,9 @@ function hideDetail(){
     roundCorners: true,
     onDone: function(){
       detailEl.style.pointerEvents="none";
-      /* Refresh grid only if we came from the ratings screen */
-      if(ratingsEl.style.pointerEvents==="auto") loadRatings();
+      /* Refresh whichever base grid we're sitting on top of */
+      if(currentBase==="ratings") loadRatings();
+      if(currentBase==="activity") loadActivity();
       /* If we came from browse, put focus back in the search box */
       if(browseEl.style.pointerEvents==="auto"){
         requestAnimationFrame(function(){ browseInput.focus(); });
@@ -2053,21 +2281,9 @@ function hideDetail(){
   });
 }
 
-/* Intro fades out to reveal the movie screen underneath */
+/* Entry point into the calculator flow (footer, intro, skip-auth all use this) */
 function showMovie(){
-  haptic();
-  introActive = false;
-  fromCalc = false;
-  introEl.style.opacity="0";
-  introEl.style.pointerEvents="none";
-  authEl.style.opacity="0";
-  authEl.style.pointerEvents="none";
-  menuEl.style.opacity="0";
-  menuEl.style.pointerEvents="none";
-  movieEl.style.pointerEvents="auto";
-  requestAnimationFrame(function(){
-    document.getElementById("movieInput").focus();
-  });
+  enterCalculatorFresh();
 }
 
 /* Title tap — come back from calc to movie screen */
@@ -2078,29 +2294,25 @@ function showMovieFromCalc(){
   setTimeout(function(){ movieInput.focus(); }, 400);
 }
 
-/* Back from movie screen */
+/* Back from movie screen — return to whichever base screen we came from */
 function hideMovie(){
   if(fromCalc){
     fromCalc = false;
     showCalc();
   } else {
-    introActive = true;
     movieEl.style.pointerEvents="none";
     movieEl.style.transform="translateY(0%)";
     movieEl.style.borderRadius="0";
-    if(currentUser){
-      menuEl.style.opacity="1";
-      menuEl.style.pointerEvents="auto";
-    } else {
-      authEl.style.opacity="1";
-      authEl.style.pointerEvents="auto";
-    }
+    showBase(previousBase || 'activity');
+    if(currentBase==="activity") loadActivity();
+    if(currentBase==="ratings") loadRatings();
   }
 }
 
 /* Movie slides up, revealing calc underneath */
 function showCalc(){
-  calcEl.scrollTop = 0;
+  var cs=document.querySelector("#screen-calc .calc-scroll");
+  if(cs) cs.scrollTop = 0;
   runSpring({
     el: movieEl,
     from: 0, to: -100,
@@ -2123,6 +2335,32 @@ function hideCalc(){
     stiffness: 280, damping: 32, mass: 1,
     roundCorners: true,
     scrimEl: scrimEl, scrimDir: "out"
+  });
+}
+
+/* Search results grid slides up over Browse */
+function showSearchResults(){
+  searchResultsEl.style.pointerEvents="auto";
+  var ss=document.querySelector("#screen-search-results .search-results-scroll");
+  if(ss) ss.scrollTop=0;
+  runSpring({
+    el: searchResultsEl,
+    from: 100, to: 0,
+    vel: 8,
+    stiffness: 300, damping: 30, mass: 1,
+    roundCorners: true
+  });
+}
+
+function hideSearchResults(){
+  runSpring({
+    el: searchResultsEl,
+    from: 0, to: 100,
+    stiffness: 280, damping: 32, mass: 1,
+    roundCorners: true,
+    onDone: function(){
+      searchResultsEl.style.pointerEvents="none";
+    }
   });
 }
 
@@ -2468,27 +2706,15 @@ STAR_KEYS.forEach(function(k){ buildStars(k); });
    WIRING
 ───────────────────────────────────────────── */
 
-/* Boot: if already authed, intro tap goes to menu; else to auth */
+/* Boot: if returning from an OAuth redirect while already authed, jump to Activity */
 bootAuth(
-  function onAuthed(){
-    /* If we just came back from an OAuth redirect, jump straight to the menu */
-    if(window.__ratrJustAuthed){
-      introEl.style.opacity="0";
-      introEl.style.pointerEvents="none";
-      menuEl.style.opacity="1";
-      menuEl.style.pointerEvents="auto";
-      introActive=false;
-    }
-  },
+  function onAuthed(){ /* session ready — intro still shows first, tap/keypress advances */ },
   function onNeedsAuth(){ /* not signed in — intro tap shows auth */ }
 );
 
 /* Show auth screen */
 function showAuth(){
-  introEl.style.opacity="0";
-  introEl.style.pointerEvents="none";
-  authEl.style.opacity="1";
-  authEl.style.pointerEvents="auto";
+  showBase('auth');
 }
 
 document.getElementById("btn-google-signin").addEventListener("click",function(){
@@ -2496,37 +2722,33 @@ document.getElementById("btn-google-signin").addEventListener("click",function()
   signInWithGoogle();
 });
 
-/* Skip auth → straight to calculator flow */
+/* Skip auth → straight to Activity (guest sees a sign-in prompt there) */
 document.getElementById("btn-skip-auth").addEventListener("click",function(){
   haptic();
-  authEl.style.opacity="0";
-  authEl.style.pointerEvents="none";
-  showMovie();
+  showBase('activity');
+  loadActivity();
 });
 
-/* Menu: use calculator */
-document.getElementById("btn-use-calc").addEventListener("click",function(){
+/* ─────────────────────────────────────────────
+   FOOTER NAV
+───────────────────────────────────────────── */
+document.getElementById("footer-browse").addEventListener("click",function(){
   haptic();
-  hideMenu();
-  showMovie();
+  showBrowse();
 });
 
-/* Menu: see my ratings */
-document.getElementById("btn-see-ratings").addEventListener("click",function(){
+document.getElementById("footer-calculator").addEventListener("click",function(){
   haptic();
-  showRatings();
+  enterCalculatorFresh();
 });
 
-/* Ratings screen back */
-document.getElementById("btn-ratings-back").addEventListener("click",function(){
+document.getElementById("footer-profile").addEventListener("click",function(){
   haptic();
-  hideRatings();
-});
-document.getElementById("btn-ratings-back").addEventListener("mouseover",function(){
-  this.style.color="rgba(255,255,255,0.75)";
-});
-document.getElementById("btn-ratings-back").addEventListener("mouseout",function(){
-  this.style.color="rgba(255,255,255,0.4)";
+  if(currentUser){
+    showRatings();
+  } else {
+    showBase('auth');
+  }
 });
 
 /* ─────────────────────────────────────────────
@@ -2538,13 +2760,12 @@ document.getElementById("btn-ratings-back").addEventListener("mouseout",function
   /* Returns the correct "go back" action for whatever screen is on top */
   function currentBackAction(){
     if(detailEl.style.pointerEvents==="auto") return hideDetail;
-    if(browseEl.style.pointerEvents==="auto") return hideBrowse;
-    if(ratingsEl.style.pointerEvents==="auto") return hideRatings;
+    if(searchResultsEl.style.pointerEvents==="auto") return hideSearchResults;
     if(scoreEl.style.pointerEvents==="auto") return hideScore;
     /* Calc is showing when movie has slid up out of the way */
     var mt=movieEl.style.transform||"";
-    if(mt.indexOf("-100")!==-1) return hideCalc;
-    if(movieEl.style.pointerEvents==="auto") return hideMovie;
+    if(currentBase==="calc" && mt.indexOf("-100")!==-1) return hideCalc;
+    if(currentBase==="calc" && movieEl.style.pointerEvents==="auto") return hideMovie;
     return null;
   }
 
@@ -2591,11 +2812,7 @@ function closeBrowseDropdown(){
 }
 
 function showBrowse(){
-  haptic();
-  menuEl.style.opacity="0";
-  menuEl.style.pointerEvents="none";
-  browseEl.style.opacity="1";
-  browseEl.style.pointerEvents="auto";
+  showBase('browse');
   browseInput.value="";
   closeBrowseDropdown();
   requestAnimationFrame(function(){ browseInput.focus(); });
@@ -2603,10 +2820,84 @@ function showBrowse(){
 
 function hideBrowse(){
   closeBrowseDropdown();
-  browseEl.style.opacity="0";
-  browseEl.style.pointerEvents="none";
-  menuEl.style.opacity="1";
-  menuEl.style.pointerEvents="auto";
+  showBase(previousBase || 'activity');
+}
+
+/* Shared TMDB search fetch, reused by Browse, Activity, and Search Results */
+function tmdbSearchMovies(query){
+  return fetch("https://api.themoviedb.org/3/search/movie?query="+encodeURIComponent(query)+
+        "&include_adult=false&language=en-US&page=1",{
+    headers:{"Authorization":"Bearer "+TMDB_TOKEN,"Content-Type":"application/json"}
+  }).then(function(r){ return r.ok?r.json():null; })
+   .then(function(d){ return d?d.results:[]; })
+   .catch(function(){ return []; });
+}
+
+/* Community average rating for a film, used by the search-results grid */
+function getCommunityAvg(tmdbIdVal){
+  return supaFetch("/rest/v1/ratings?select=final_score&tmdb_id=eq."+tmdbIdVal,{
+    method:"GET",
+    headers:{
+      "apikey":SUPA_KEY,
+      "Authorization":"Bearer "+(currentAccessToken||SUPA_KEY),
+      "Content-Type":"application/json",
+      "Prefer":"return=representation"
+    }
+  }).then(function(r){ return r.json(); })
+  .then(function(rows){
+    if(!rows||rows.length===0) return {avg:0,count:0};
+    var sum=0,n=0;
+    rows.forEach(function(r){
+      if(r.final_score!==null&&r.final_score!==undefined){ sum+=Number(r.final_score); n++; }
+    });
+    return {avg:n>0?sum/n:0, count:n};
+  }).catch(function(){ return {avg:0,count:0}; });
+}
+
+/* Netflix-style search results grid — TMDB order, community-average stars */
+function openSearchResultsGrid(query){
+  if(!query) return;
+  closeBrowseDropdown();
+  var content=document.getElementById("search-results-content");
+  document.getElementById("search-results-title").textContent="results for \u201c"+query+"\u201d";
+  content.innerHTML="<div class='ratings-loading'>searching…</div>";
+  showSearchResults();
+  tmdbSearchMovies(query).then(function(results){
+    if(!results||results.length===0){
+      content.innerHTML="<div class='ratings-empty'>no matches found</div>";
+      return;
+    }
+    var list=results.slice(0,18);
+    return Promise.all(list.map(function(m){
+      var year=m.release_date?m.release_date.slice(0,4):"";
+      return getCommunityAvg(m.id).then(function(info){
+        return {id:m.id,title:m.title,year:year,poster:m.poster_path,avg:info.avg,count:info.count};
+      });
+    })).then(function(withAvgs){
+      var grid=document.createElement("div");
+      grid.className="ratings-grid";
+      withAvgs.forEach(function(m){
+        var card=document.createElement("div");
+        card.className="rating-card";
+        var posterHTML = m.poster
+          ? "<img class='rating-poster' src='https://image.tmdb.org/t/p/w342"+m.poster+"' alt=''/>"
+          : "<div class='rating-poster-fallback'>"+m.title+"</div>";
+        var starsHTML = m.count>0
+          ? proportionalStarsHTML(m.avg,16,true)
+          : "<div class='rating-stars-row' style='height:18px;justify-content:center;'><span style='font-size:10px;color:rgba(255,255,255,0.4);font-style:italic;font-family:system-ui,-apple-system,sans-serif;'>no ratings yet</span></div>";
+        card.innerHTML=posterHTML+starsHTML;
+        card.addEventListener("click",function(){
+          haptic();
+          openBrowsedMovie(m.id,m.title,m.year,m.poster);
+        });
+        grid.appendChild(card);
+      });
+      content.innerHTML="";
+      content.appendChild(grid);
+    });
+  }).catch(function(){
+    content.innerHTML="<div class='ratings-empty'>something went wrong</div>";
+  });
 }
 
 function renderBrowseDropdown(results){
@@ -2634,12 +2925,7 @@ function renderBrowseDropdown(results){
 
 function searchBrowse(query){
   if(!query||query.length<2){ closeBrowseDropdown(); return; }
-  fetch("https://api.themoviedb.org/3/search/movie?query="+encodeURIComponent(query)+
-        "&include_adult=false&language=en-US&page=1",{
-    headers:{"Authorization":"Bearer "+TMDB_TOKEN,"Content-Type":"application/json"}
-  }).then(function(r){ return r.ok?r.json():null; })
-   .then(function(d){ renderBrowseDropdown(d?d.results:null); })
-   .catch(function(){ closeBrowseDropdown(); });
+  tmdbSearchMovies(query).then(function(results){ renderBrowseDropdown(results); });
 }
 
 /* Open a browsed movie — pulls the user's own entries for it, if any */
@@ -2709,31 +2995,117 @@ browseInput.addEventListener("keydown",function(e){
       haptic();
       var m=browseItems[browseActiveIdx];
       openBrowsedMovie(m.id,m.title,m.year,m.poster);
+    } else {
+      var q=browseInput.value.trim();
+      if(q.length>=2){ haptic(); openSearchResultsGrid(q); }
     }
   } else if(e.key==="Escape"){
     closeBrowseDropdown();
   }
 });
 
-document.getElementById("btn-browse").addEventListener("click", showBrowse);
 document.getElementById("btn-browse-close").addEventListener("click",function(){
   haptic();
   hideBrowse();
 });
 
-/* Return to the menu (or auth screen if not signed in) from anywhere */
+/* ─────────────────────────────────────────────
+   ACTIVITY SEARCH BAR
+   Same autocomplete as Browse, but Enter with no
+   highlighted item jumps straight to the closest
+   (first) match's detail page instead of a grid.
+───────────────────────────────────────────── */
+var activityInput=document.getElementById("activityInput");
+var activityDropdown=document.getElementById("activity-dropdown");
+var activityDebounce=null;
+var activityActiveIdx=-1;
+var activityItems=[];
+
+function closeActivityDropdown(){
+  activityDropdown.classList.remove("visible");
+  activityInput.classList.remove("open");
+  activityActiveIdx=-1;
+  activityItems=[];
+}
+
+function renderActivityDropdown(results){
+  activityDropdown.innerHTML="";
+  if(!results||results.length===0){ closeActivityDropdown(); return; }
+  activityItems=[];
+  results.slice(0,6).forEach(function(m){
+    var item=document.createElement("div");
+    item.className="dropdown-item";
+    var year=m.release_date?m.release_date.slice(0,4):"";
+    item.innerHTML="<div class='dropdown-title'>"+m.title+"</div>"+
+                   (year?"<div class='dropdown-year'>"+year+"</div>":"");
+    item.addEventListener("mousedown",function(e){
+      e.preventDefault();
+      haptic();
+      openBrowsedMovie(m.id, m.title, year, m.poster_path);
+      closeActivityDropdown();
+      activityInput.value="";
+    });
+    activityDropdown.appendChild(item);
+    activityItems.push({id:m.id,title:m.title,year:year,poster:m.poster_path});
+  });
+  activityDropdown.classList.add("visible");
+  activityInput.classList.add("open");
+  activityActiveIdx=-1;
+}
+
+activityInput.addEventListener("input",function(){
+  var q=activityInput.value.trim();
+  clearTimeout(activityDebounce);
+  activityDebounce=setTimeout(function(){
+    if(q.length<2){ closeActivityDropdown(); return; }
+    tmdbSearchMovies(q).then(function(results){ renderActivityDropdown(results); });
+  },200);
+});
+
+activityInput.addEventListener("keydown",function(e){
+  if(e.key==="ArrowDown"){
+    e.preventDefault();
+    activityActiveIdx=Math.min(activityActiveIdx+1, activityItems.length-1);
+    Array.from(activityDropdown.querySelectorAll(".dropdown-item")).forEach(function(el,i){
+      el.classList.toggle("active",i===activityActiveIdx);
+    });
+  } else if(e.key==="ArrowUp"){
+    e.preventDefault();
+    activityActiveIdx=Math.max(activityActiveIdx-1,-1);
+    Array.from(activityDropdown.querySelectorAll(".dropdown-item")).forEach(function(el,i){
+      el.classList.toggle("active",i===activityActiveIdx);
+    });
+  } else if(e.key==="Enter"){
+    /* Use the highlighted item if arrow-selected, otherwise jump to the closest match */
+    var pick = (activityActiveIdx>=0 && activityItems[activityActiveIdx])
+      ? activityItems[activityActiveIdx]
+      : activityItems[0];
+    if(pick){
+      haptic();
+      openBrowsedMovie(pick.id, pick.title, pick.year, pick.poster);
+      closeActivityDropdown();
+      activityInput.value="";
+    }
+  } else if(e.key==="Escape"){
+    closeActivityDropdown();
+  }
+});
+
+activityInput.addEventListener("blur",function(){
+  setTimeout(closeActivityDropdown, 150);
+});
+
+/* ratr logo always returns to the Activity landing screen */
 function goHome(){
   haptic();
-  /* Slide away any stacked screens */
+  /* Slide away any stacked overlays */
   if(detailEl.style.pointerEvents==="auto") hideDetail();
-  if(ratingsEl.style.pointerEvents==="auto") hideRatings();
-  browseEl.style.opacity="0";
-  browseEl.style.pointerEvents="none";
+  if(searchResultsEl.style.pointerEvents==="auto") hideSearchResults();
   closeBrowseDropdown();
   scoreEl.style.transform="translateY(100%)";
   scoreEl.style.borderRadius="0";
   scoreEl.style.pointerEvents="none";
-  /* Reset movie/calc stack */
+  /* Reset movie/calc stack to its rest state */
   movieEl.style.transform="translateY(0%)";
   movieEl.style.borderRadius="0";
   movieEl.style.pointerEvents="none";
@@ -2741,20 +3113,8 @@ function goHome(){
   scrimEl.style.webkitBackdropFilter="";
   scrimEl.style.background="rgba(0,0,0,0)";
   fromCalc=false;
-  introActive=false;
-  introEl.style.opacity="0";
-  introEl.style.pointerEvents="none";
-  if(currentUser){
-    authEl.style.opacity="0";
-    authEl.style.pointerEvents="none";
-    menuEl.style.opacity="1";
-    menuEl.style.pointerEvents="auto";
-  } else {
-    menuEl.style.opacity="0";
-    menuEl.style.pointerEvents="none";
-    authEl.style.opacity="1";
-    authEl.style.pointerEvents="auto";
-  }
+  showBase('activity');
+  loadActivity();
 }
 
 /* Wire every ratr logo in a topbar to go home */
@@ -2771,6 +3131,18 @@ document.getElementById("btn-detail-back").addEventListener("mouseover",function
   this.style.color="rgba(255,255,255,0.75)";
 });
 document.getElementById("btn-detail-back").addEventListener("mouseout",function(){
+  this.style.color="rgba(255,255,255,0.4)";
+});
+
+document.getElementById("btn-search-results-back").addEventListener("click",function(){
+  haptic();
+  hideSearchResults();
+  requestAnimationFrame(function(){ browseInput.focus(); });
+});
+document.getElementById("btn-search-results-back").addEventListener("mouseover",function(){
+  this.style.color="rgba(255,255,255,0.75)";
+});
+document.getElementById("btn-search-results-back").addEventListener("mouseout",function(){
   this.style.color="rgba(255,255,255,0.4)";
 });
 
@@ -2803,11 +3175,11 @@ document.getElementById("btn-signout").addEventListener("mouseout",function(){
   this.style.color="rgba(255,255,255,0.4)";
 });
 
-/* Intro: tap or keypress — authed goes to menu, otherwise auth screen */
+/* Intro: tap or keypress — authed goes straight to Activity, otherwise auth screen */
 introEl.addEventListener("click",function(e){
   if(e.target.closest("button,input")) return;
   introActive=false;
-  if(currentUser){ showMenu(); } else { showAuth(); }
+  if(currentUser){ showBase('activity'); loadActivity(); } else { showAuth(); }
 });
 
 var introActive = true;
@@ -2815,7 +3187,7 @@ document.addEventListener("keydown",function(e){
   if(!introActive) return;
   if(["Shift","Control","Alt","Meta","Tab","CapsLock","Enter","Escape"].indexOf(e.key)!==-1) return;
   introActive = false;
-  if(currentUser){ showMenu(); } else { showAuth(); }
+  if(currentUser){ showBase('activity'); loadActivity(); } else { showAuth(); }
 });
 
 /* ─────────────────────────────────────────────
@@ -3015,17 +3387,14 @@ document.getElementById("btn-score-again").addEventListener("click",function(){
   document.getElementById("calc-film-name").textContent="";
   resetAll();
   hideScore();
-  /* Snap movie back to rest position (visible, covering calc) */
+  /* Snap movie back to fresh title-input state, still within the calc flow */
   movieEl.style.transform="translateY(0%)";
   movieEl.style.borderRadius="0";
-  movieEl.style.pointerEvents="none";
+  movieEl.style.pointerEvents="auto";
   scrimEl.style.backdropFilter="";
   scrimEl.style.webkitBackdropFilter="";
   scrimEl.style.background="rgba(0,0,0,0)";
-  /* Fade intro back in */
-  introActive = true;
-  introEl.style.opacity="1";
-  introEl.style.pointerEvents="auto";
+  requestAnimationFrame(function(){ movieInput.focus(); });
 });
 </script>
 </body>
