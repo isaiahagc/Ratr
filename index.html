@@ -164,10 +164,13 @@ html,body{width:100%;height:100%;overflow:hidden;background:#0B2054;font-family:
   display:flex;align-items:center;justify-content:space-between;
   padding:14px 24px 16px;
   border-top:1px solid rgba(255,255,255,0.12);
-  opacity:0;pointer-events:none;
-  transition:opacity 300ms ease;
+  opacity:0;pointer-events:none;visibility:hidden;
+  transition:opacity 300ms ease, visibility 0s linear 300ms;
 }
-#app-footer.visible{opacity:1;pointer-events:auto;}
+#app-footer.visible{
+  opacity:1;pointer-events:auto;visibility:visible;
+  transition:opacity 300ms ease, visibility 0s;
+}
 .footer-icon-btn{
   background:transparent;border:none;cursor:pointer;
   width:42px;height:42px;display:flex;align-items:center;justify-content:center;
@@ -2262,6 +2265,10 @@ function showDetail(){
 }
 
 function hideDetail(){
+  /* Snapshot the base we're sitting on top of. If footer navigation
+     triggered this, currentBase will already have moved on by the time
+     the animation finishes — so capture it now. */
+  var baseAtDismiss = currentBase;
   runSpring({
     el: detailEl,
     from: 0, to: 100,
@@ -2269,12 +2276,13 @@ function hideDetail(){
     roundCorners: true,
     onDone: function(){
       detailEl.style.pointerEvents="none";
-      /* Refresh whichever base grid we're sitting on top of */
-      if(currentBase==="ratings") loadRatings();
-      if(currentBase==="activity") loadActivity();
-      /* If we came from browse, put focus back in the search box */
-      if(browseEl.style.pointerEvents==="auto"){
-        requestAnimationFrame(function(){ browseInput.focus(); });
+      /* Only refresh if we actually stayed on that base screen */
+      if(currentBase===baseAtDismiss){
+        if(currentBase==="ratings") loadRatings();
+        if(currentBase==="activity") loadActivity();
+        if(currentBase==="browse"){
+          requestAnimationFrame(function(){ browseInput.focus(); });
+        }
       }
     }
   });
@@ -2731,18 +2739,44 @@ document.getElementById("btn-skip-auth").addEventListener("click",function(){
 /* ─────────────────────────────────────────────
    FOOTER NAV
 ───────────────────────────────────────────── */
+/* Any footer navigation must first dismiss whatever overlay is stacked
+   on top (detail / search results / score), otherwise the new base screen
+   fades in *behind* the overlay and looks like nothing happened.
+
+   runSpring only tracks one animation at a time, so we animate the
+   topmost overlay and snap any others away instantly. */
+function snapAway(el){
+  el.style.transform="translateY(100%)";
+  el.style.borderRadius="0";
+  el.style.pointerEvents="none";
+}
+
+function dismissOverlays(){
+  var open=[];
+  if(detailEl.style.pointerEvents==="auto") open.push({el:detailEl, hide:hideDetail});
+  if(searchResultsEl.style.pointerEvents==="auto") open.push({el:searchResultsEl, hide:hideSearchResults});
+  if(scoreEl.style.pointerEvents==="auto") open.push({el:scoreEl, hide:hideScore});
+  if(open.length===0) return;
+  /* Animate the topmost (last in stacking order), snap the rest */
+  open.slice(0,-1).forEach(function(o){ snapAway(o.el); });
+  open[open.length-1].hide();
+}
+
 document.getElementById("footer-browse").addEventListener("click",function(){
   haptic();
+  dismissOverlays();
   showBrowse();
 });
 
 document.getElementById("footer-calculator").addEventListener("click",function(){
   haptic();
+  dismissOverlays();
   enterCalculatorFresh();
 });
 
 document.getElementById("footer-profile").addEventListener("click",function(){
   haptic();
+  dismissOverlays();
   if(currentUser){
     showRatings();
   } else {
@@ -3142,13 +3176,8 @@ activityInput.addEventListener("blur",function(){
 /* ratr logo always returns to the Activity landing screen */
 function goHome(){
   haptic();
-  /* Slide away any stacked overlays */
-  if(detailEl.style.pointerEvents==="auto") hideDetail();
-  if(searchResultsEl.style.pointerEvents==="auto") hideSearchResults();
+  dismissOverlays();
   closeBrowseDropdown();
-  scoreEl.style.transform="translateY(100%)";
-  scoreEl.style.borderRadius="0";
-  scoreEl.style.pointerEvents="none";
   /* Reset movie/calc stack to its rest state */
   movieEl.style.transform="translateY(0%)";
   movieEl.style.borderRadius="0";
