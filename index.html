@@ -2835,7 +2835,18 @@ function tmdbSearchMovies(query){
 
 /* Community average rating for a film, used by the search-results grid */
 function getCommunityAvg(tmdbIdVal){
-  return supaFetch("/rest/v1/ratings?select=final_score&tmdb_id=eq."+tmdbIdVal,{
+  return getCommunityAvgBatch([tmdbIdVal]).then(function(map){
+    return map[tmdbIdVal] || {avg:0,count:0};
+  });
+}
+
+/* Batched version — one query for many films at once.
+   Returns a map of { tmdb_id: {avg, count} }. */
+function getCommunityAvgBatch(tmdbIds){
+  var ids=tmdbIds.filter(function(id){ return id!==null && id!==undefined; });
+  if(ids.length===0) return Promise.resolve({});
+  var inList="("+ids.join(",")+")";
+  return supaFetch("/rest/v1/ratings?select=tmdb_id,final_score&tmdb_id=in."+encodeURIComponent(inList),{
     method:"GET",
     headers:{
       "apikey":SUPA_KEY,
@@ -2845,13 +2856,21 @@ function getCommunityAvg(tmdbIdVal){
     }
   }).then(function(r){ return r.json(); })
   .then(function(rows){
-    if(!rows||rows.length===0) return {avg:0,count:0};
-    var sum=0,n=0;
+    var acc={};
+    if(!rows||!rows.length) return acc;
     rows.forEach(function(r){
-      if(r.final_score!==null&&r.final_score!==undefined){ sum+=Number(r.final_score); n++; }
+      if(r.final_score===null||r.final_score===undefined) return;
+      var k=r.tmdb_id;
+      if(!acc[k]) acc[k]={sum:0,n:0};
+      acc[k].sum+=Number(r.final_score);
+      acc[k].n++;
     });
-    return {avg:n>0?sum/n:0, count:n};
-  }).catch(function(){ return {avg:0,count:0}; });
+    var out={};
+    Object.keys(acc).forEach(function(k){
+      out[k]={avg:acc[k].n>0?acc[k].sum/acc[k].n:0, count:acc[k].n};
+    });
+    return out;
+  }).catch(function(){ return {}; });
 }
 
 /* Netflix-style search results grid — TMDB order, community-average stars */
@@ -2867,33 +2886,47 @@ function openSearchResultsGrid(query){
       content.innerHTML="<div class='ratings-empty'>no matches found</div>";
       return;
     }
-    var list=results.slice(0,18);
-    return Promise.all(list.map(function(m){
-      var year=m.release_date?m.release_date.slice(0,4):"";
-      return getCommunityAvg(m.id).then(function(info){
-        return {id:m.id,title:m.title,year:year,poster:m.poster_path,avg:info.avg,count:info.count};
+    var list=results.slice(0,18).map(function(m){
+      return {
+        id:m.id,
+        title:m.title,
+        year:m.release_date?m.release_date.slice(0,4):"",
+        poster:m.poster_path
+      };
+    });
+
+    /* Render the grid immediately with placeholder score slots */
+    var grid=document.createElement("div");
+    grid.className="ratings-grid";
+    list.forEach(function(m){
+      var card=document.createElement("div");
+      card.className="rating-card";
+      var posterHTML = m.poster
+        ? "<img class='rating-poster' src='https://image.tmdb.org/t/p/w342"+m.poster+"' alt=''/>"
+        : "<div class='rating-poster-fallback'>"+m.title+"</div>";
+      card.innerHTML=posterHTML+
+        "<div class='sr-score' data-id='"+m.id+"'>"+
+          "<div class='rating-stars-row' style='height:18px;'></div>"+
+        "</div>";
+      card.addEventListener("click",function(){
+        haptic();
+        openBrowsedMovie(m.id,m.title,m.year,m.poster);
       });
-    })).then(function(withAvgs){
-      var grid=document.createElement("div");
-      grid.className="ratings-grid";
-      withAvgs.forEach(function(m){
-        var card=document.createElement("div");
-        card.className="rating-card";
-        var posterHTML = m.poster
-          ? "<img class='rating-poster' src='https://image.tmdb.org/t/p/w342"+m.poster+"' alt=''/>"
-          : "<div class='rating-poster-fallback'>"+m.title+"</div>";
-        var starsHTML = m.count>0
-          ? proportionalStarsHTML(m.avg,16,true)
+      grid.appendChild(card);
+    });
+    content.innerHTML="";
+    content.appendChild(grid);
+
+    /* Then fill in community averages with a single batched query */
+    var ids=list.map(function(m){ return m.id; });
+    return getCommunityAvgBatch(ids).then(function(map){
+      grid.querySelectorAll(".sr-score").forEach(function(slot){
+        var id=slot.getAttribute("data-id");
+        var info=map[id];
+        slot.innerHTML = (info && info.count>0)
+          ? proportionalStarsHTML(info.avg,16,true)
           : "<div class='rating-stars-row' style='height:18px;justify-content:center;'><span style='font-size:10px;color:rgba(255,255,255,0.4);font-style:italic;font-family:system-ui,-apple-system,sans-serif;'>no ratings yet</span></div>";
-        card.innerHTML=posterHTML+starsHTML;
-        card.addEventListener("click",function(){
-          haptic();
-          openBrowsedMovie(m.id,m.title,m.year,m.poster);
-        });
-        grid.appendChild(card);
       });
-      content.innerHTML="";
-      content.appendChild(grid);
     });
   }).catch(function(){
     content.innerHTML="<div class='ratings-empty'>something went wrong</div>";
@@ -2997,7 +3030,12 @@ browseInput.addEventListener("keydown",function(e){
       openBrowsedMovie(m.id,m.title,m.year,m.poster);
     } else {
       var q=browseInput.value.trim();
-      if(q.length>=2){ haptic(); openSearchResultsGrid(q); }
+      if(q.length>=2){
+        haptic();
+        closeBrowseDropdown();
+        browseInput.blur();
+        openSearchResultsGrid(q);
+      }
     }
   } else if(e.key==="Escape"){
     closeBrowseDropdown();
@@ -3076,15 +3114,22 @@ activityInput.addEventListener("keydown",function(e){
       el.classList.toggle("active",i===activityActiveIdx);
     });
   } else if(e.key==="Enter"){
-    /* Use the highlighted item if arrow-selected, otherwise jump to the closest match */
-    var pick = (activityActiveIdx>=0 && activityItems[activityActiveIdx])
-      ? activityItems[activityActiveIdx]
-      : activityItems[0];
-    if(pick){
+    /* Arrow-selected an item → open it directly.
+       Otherwise Enter opens the 3-across results grid. */
+    if(activityActiveIdx>=0 && activityItems[activityActiveIdx]){
+      var pick=activityItems[activityActiveIdx];
       haptic();
       openBrowsedMovie(pick.id, pick.title, pick.year, pick.poster);
       closeActivityDropdown();
       activityInput.value="";
+    } else {
+      var q=activityInput.value.trim();
+      if(q.length>=2){
+        haptic();
+        closeActivityDropdown();
+        activityInput.blur();
+        openSearchResultsGrid(q);
+      }
     }
   } else if(e.key==="Escape"){
     closeActivityDropdown();
@@ -3137,7 +3182,10 @@ document.getElementById("btn-detail-back").addEventListener("mouseout",function(
 document.getElementById("btn-search-results-back").addEventListener("click",function(){
   haptic();
   hideSearchResults();
-  requestAnimationFrame(function(){ browseInput.focus(); });
+  /* Return focus to whichever search bar opened this grid */
+  requestAnimationFrame(function(){
+    if(currentBase==="browse") browseInput.focus();
+  });
 });
 document.getElementById("btn-search-results-back").addEventListener("mouseover",function(){
   this.style.color="rgba(255,255,255,0.75)";
