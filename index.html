@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content"/>
 <title>RATR</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
@@ -13,14 +13,13 @@ html,body{width:100%;height:100%;overflow:hidden;background:#0B2054;font-family:
 
 /* ── All screens absolutely stacked ── */
 .screen{
-  position:absolute;inset:0;
+  position:absolute;left:0;right:0;top:0;bottom:76px;
   display:flex;flex-direction:column;align-items:center;
   background:#0B2054;
-  padding-bottom:76px; /* reserve space for the persistent footer */
 }
 
 /* ── INTRO ── */
-#screen-intro{justify-content:center;z-index:4;transition:opacity 500ms ease;pointer-events:auto;padding-bottom:0;}
+#screen-intro{justify-content:center;z-index:4;transition:opacity 500ms ease;pointer-events:auto;bottom:0;}
 .intro-inner{display:flex;flex-direction:column;align-items:center;text-align:center;gap:4px;}
 .welcome{color:white;font-size:14px;font-weight:400;letter-spacing:0.4px;}
 .ratr-logo{color:white;font-size:72px;font-weight:700;line-height:0.95;font-family:"Courier New",monospace;}
@@ -100,7 +99,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:#0B2054;font-family:
 .inline-search-input{
   width:100%;height:44px;padding:0 14px;
   background:rgba(255,255,255,0.06);border:1.5px solid rgba(255,255,255,0.35);border-radius:12px;
-  outline:none;color:white;font-size:14px;caret-color:white;
+  outline:none;color:white;font-size:16px;caret-color:white;
   font-family:"Courier New",monospace;letter-spacing:0.4px;
   transition:border-color 150ms ease;
 }
@@ -305,7 +304,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:#0B2054;font-family:
 #browseInput{
   width:100%;height:48px;padding:0 14px;
   background:transparent;border:2px solid white;border-radius:14px;
-  outline:none;color:white;font-size:15px;caret-color:white;
+  outline:none;color:white;font-size:16px;caret-color:white;
   font-family:"Courier New",monospace;letter-spacing:0.5px;text-align:center;
 }
 #browseInput::placeholder{color:rgba(255,255,255,0.4);font-family:"Courier New",monospace;}
@@ -539,7 +538,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:#0B2054;font-family:
 .movie-input{
   width:100%;height:48px;padding:0 14px;
   background:transparent;border:2px solid white;border-radius:14px;
-  outline:none;color:white;font-size:15px;caret-color:white;
+  outline:none;color:white;font-size:16px;caret-color:white;
   font-family:"Courier New",monospace;letter-spacing:0.5px;text-align:center;
 }
 .movie-input::placeholder{color:rgba(255,255,255,0.4);font-family:"Courier New",monospace;}
