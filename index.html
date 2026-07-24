@@ -62,6 +62,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:#0B2054;font-family:
   z-index:5;
   transform:translateY(100%);
   bottom:0;
+  pointer-events:none;
   will-change:transform,border-radius;
   border-radius:0;
 }
@@ -124,6 +125,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:#0B2054;font-family:
   z-index:6;
   transform:translateY(100%);
   bottom:0;
+  pointer-events:none;
   will-change:transform,border-radius;
   border-radius:0;
   background:#0B2054;
@@ -361,6 +363,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:#0B2054;font-family:
   z-index:7;
   transform:translateY(100%);
   bottom:0;
+  pointer-events:none;
   will-change:transform,border-radius;
   border-radius:0;
   background:#0B2054;
@@ -2177,8 +2180,11 @@ var footerEl = document.getElementById("app-footer");
    Base-layer visibility (intro/activity/ratings/browse/calc/auth)
    is handled entirely by CSS defaults + showBase(). */
 detailEl.style.transform = "translateY(100%)";
+detailEl.style.pointerEvents = "none";
 searchResultsEl.style.transform = "translateY(100%)";
+searchResultsEl.style.pointerEvents = "none";
 scoreEl.style.transform  = "translateY(100%)";
+scoreEl.style.pointerEvents = "none";
 
 /* ─────────────────────────────────────────────
    SCREEN TRANSITIONS
@@ -2215,6 +2221,12 @@ function registerBaseLayers(){
 
 function showBase(name){
   if(!baseLayers) registerBaseLayers();
+  /* Drop focus from any input on the outgoing screen so the mobile
+     keyboard doesn't stay attached to a hidden field. */
+  if(name!==currentBase && document.activeElement &&
+     document.activeElement.tagName==="INPUT"){
+    document.activeElement.blur();
+  }
   if(name!==currentBase){ previousBase = currentBase; }
   currentBase = name;
   Object.keys(baseLayers).forEach(function(k){
@@ -2851,11 +2863,17 @@ function showBrowse(){
   showBase('browse');
   browseInput.value="";
   closeBrowseDropdown();
-  requestAnimationFrame(function(){ browseInput.focus(); });
+  /* Wait for the fade-in to finish before focusing — iOS refuses to
+     focus (and won't raise the keyboard for) an element that is still
+     transitioning in from opacity:0. */
+  setTimeout(function(){ browseInput.focus(); }, 300);
 }
 
 function hideBrowse(){
   closeBrowseDropdown();
+  /* Dismiss the mobile keyboard before the screen fades out, otherwise
+     iOS keeps it attached to the now-hidden input. */
+  browseInput.blur();
   showBase(previousBase || 'activity');
 }
 
