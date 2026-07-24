@@ -142,6 +142,27 @@ html,body{width:100%;height:100%;overflow:hidden;background:#0B2054;font-family:
   font-size:11px;color:rgba(255,255,255,0.5);font-style:italic;
   font-family:system-ui,-apple-system,sans-serif;
 }
+.sr-person-header{
+  padding:18px 20px 4px;
+}
+.sr-person-name{
+  font-size:19px;font-weight:700;color:white;line-height:1.15;
+}
+.sr-person-meta{
+  font-size:10px;color:rgba(255,255,255,0.45);
+  font-family:"Courier New",monospace;letter-spacing:0.8px;
+  text-transform:uppercase;margin-top:4px;
+}
+.sr-year{
+  font-size:10px;color:rgba(255,255,255,0.5);
+  font-family:"Courier New",monospace;letter-spacing:0.5px;
+  margin-top:1px;
+}
+.sr-role{
+  font-size:8px;color:rgba(255,255,255,0.38);
+  font-family:"Courier New",monospace;letter-spacing:0.7px;
+  text-transform:uppercase;margin-top:1px;
+}
 
 /* ── GUEST SIGN-IN GATE ── */
 .guest-gate{
@@ -2978,6 +2999,94 @@ function buildQueryVariants(query){
   return out.slice(0,5);
 }
 
+/* ─────────────────────────────────────────────
+   PERSON SEARCH (directors / actors)
+   TMDB's /search/person returns people plus a
+   `known_for` sample. We take the best match and
+   pull their full filmography via /person/{id}/
+   movie_credits, merging directing + acting work.
+───────────────────────────────────────────── */
+function tmdbSearchPerson(query){
+  var q=(query||"").trim();
+  if(q.length<2) return Promise.resolve(null);
+  return fetch("https://api.themoviedb.org/3/search/person?query="+encodeURIComponent(q)+
+        "&include_adult=false&language=en-US&page=1",{
+    headers:{"Authorization":"Bearer "+TMDB_TOKEN,"Content-Type":"application/json"}
+  }).then(function(r){ return r.ok?r.json():null; })
+   .then(function(d){
+     if(!d || !d.results || !d.results.length) return null;
+     var normQuery=normalizeTitle(q);
+     /* Score people by name similarity + popularity so
+        "nolan" reliably lands on Christopher Nolan. */
+     var scored=d.results.map(function(p){
+       var name=normalizeTitle(p.name);
+       var sim=similarity(normQuery,name);
+       var parts=name.split(" ");
+       var last=parts[parts.length-1];
+
+       if(name===normQuery) sim=1;
+       /* A surname match is the strongest partial signal — searching
+          "nolan" should favour Christopher Nolan over Nolan North. */
+       else if(last===normQuery) sim=Math.max(sim,0.94);
+       else if(parts.indexOf(normQuery)!==-1) sim=Math.max(sim,0.86);
+       else if(name.indexOf(normQuery)===0) sim=Math.max(sim,0.84);
+       else if(name.indexOf(normQuery)!==-1) sim=Math.max(sim,0.8);
+
+       /* Popularity breaks ties between same-surname people */
+       return {person:p, score: sim + Math.min((p.popularity||0)/120, 0.14)};
+     }).sort(function(a,b){ return b.score-a.score; });
+     var best=scored[0];
+     /* Require a reasonably confident name match */
+     return (best && best.score>0.6) ? best.person : null;
+   })
+   .catch(function(){ return null; });
+}
+
+function tmdbPersonCredits(personId){
+  return fetch("https://api.themoviedb.org/3/person/"+personId+"/movie_credits?language=en-US",{
+    headers:{"Authorization":"Bearer "+TMDB_TOKEN,"Content-Type":"application/json"}
+  }).then(function(r){ return r.ok?r.json():null; })
+   .then(function(d){
+     if(!d) return {directed:[], acted:[]};
+     var directed=(d.crew||[]).filter(function(c){ return c.job==="Director"; });
+     var acted=(d.cast||[]);
+     return {directed:directed, acted:acted};
+   })
+   .catch(function(){ return {directed:[], acted:[]}; });
+}
+
+/* Merge a person's directing + acting credits into one deduped list */
+function mergePersonCredits(credits){
+  var byId={};
+  credits.directed.forEach(function(m){
+    if(!m || !m.id) return;
+    byId[m.id]=m;
+    m.__role="Director";
+  });
+  credits.acted.forEach(function(m){
+    if(!m || !m.id) return;
+    if(byId[m.id]){
+      /* Both directed and starred in it */
+      byId[m.id].__role="Director, Actor";
+    } else {
+      byId[m.id]=m;
+      m.__role="Actor";
+    }
+  });
+  return Object.keys(byId).map(function(k){ return byId[k]; });
+}
+
+/* Newest first; undated films sink to the bottom */
+function sortByReleaseDesc(list){
+  return list.slice().sort(function(a,b){
+    var da=a.release_date||"", db=b.release_date||"";
+    if(!da && !db) return 0;
+    if(!da) return 1;
+    if(!db) return -1;
+    return db.localeCompare(da);
+  });
+}
+
 function rawTmdbSearch(query){
   return fetch("https://api.themoviedb.org/3/search/movie?query="+encodeURIComponent(query)+
         "&include_adult=false&language=en-US&page=1",{
@@ -3088,6 +3197,54 @@ function getCommunityAvgBatch(tmdbIds){
 }
 
 /* Netflix-style search results grid — TMDB order, community-average stars */
+/* Shared renderer for the results grid */
+function renderSearchResultsGrid(content, list, subtitleHTML){
+  var grid=document.createElement("div");
+  grid.className="ratings-grid";
+  list.forEach(function(m){
+    var card=document.createElement("div");
+    card.className="rating-card";
+    var posterHTML = m.poster
+      ? "<img class='rating-poster' src='https://image.tmdb.org/t/p/w342"+m.poster+"' alt=''/>"
+      : "<div class='rating-poster-fallback'>"+m.title+"</div>";
+    var roleHTML = m.role
+      ? "<div class='sr-role'>"+m.role+"</div>"
+      : "";
+    var yearHTML = m.year
+      ? "<div class='sr-year'>"+m.year+"</div>"
+      : "";
+    card.innerHTML=posterHTML+
+      "<div class='sr-score' data-id='"+m.id+"'>"+
+        "<div class='rating-stars-row' style='height:18px;'></div>"+
+      "</div>"+yearHTML+roleHTML;
+    card.addEventListener("click",function(){
+      haptic();
+      openBrowsedMovie(m.id,m.title,m.year,m.poster);
+    });
+    grid.appendChild(card);
+  });
+  content.innerHTML="";
+  if(subtitleHTML){
+    var sub=document.createElement("div");
+    sub.className="sr-person-header";
+    sub.innerHTML=subtitleHTML;
+    content.appendChild(sub);
+  }
+  content.appendChild(grid);
+
+  /* Fill in community averages with one batched query */
+  var ids=list.map(function(m){ return m.id; });
+  return getCommunityAvgBatch(ids).then(function(map){
+    grid.querySelectorAll(".sr-score").forEach(function(slot){
+      var id=slot.getAttribute("data-id");
+      var info=map[id];
+      slot.innerHTML = (info && info.count>0)
+        ? proportionalStarsHTML(info.avg,16,true)
+        : "<div class='rating-stars-row' style='height:18px;justify-content:center;'><span style='font-size:10px;color:rgba(255,255,255,0.4);font-style:italic;font-family:system-ui,-apple-system,sans-serif;'>no ratings yet</span></div>";
+    });
+  });
+}
+
 function openSearchResultsGrid(query){
   if(!query) return;
   closeBrowseDropdown();
@@ -3095,56 +3252,74 @@ function openSearchResultsGrid(query){
   document.getElementById("search-results-title").textContent="results for \u201c"+query+"\u201d";
   content.innerHTML="<div class='ratings-loading'>searching…</div>";
   showSearchResults();
-  tmdbSearchMovies(query).then(function(results){
-    if(!results||results.length===0){
+
+  /* Run title search and person search together, then decide which
+     result set better matches what was typed. */
+  Promise.all([
+    tmdbSearchMovies(query),
+    tmdbSearchPerson(query)
+  ]).then(function(res){
+    var titleResults=res[0]||[];
+    var person=res[1];
+
+    /* Prefer person results when the name match is strong and the
+       title search didn't turn up an obviously better match. */
+    var topTitleScore = titleResults.length ? (titleResults[0].__score||0) : 0;
+    var usePerson = person && topTitleScore < 0.9;
+
+    if(usePerson){
+      return tmdbPersonCredits(person.id).then(function(credits){
+        var merged=mergePersonCredits(credits);
+        if(!merged.length){
+          /* Person had no usable credits — fall back to titles */
+          if(!titleResults.length){
+            content.innerHTML="<div class='ratings-empty'>no matches found</div>";
+            return;
+          }
+          return renderTitleResults(content, titleResults);
+        }
+        var sorted=sortByReleaseDesc(merged).slice(0,36);
+        var list=sorted.map(function(m){
+          return {
+            id:m.id,
+            title:m.title,
+            year:m.release_date?m.release_date.slice(0,4):"",
+            poster:m.poster_path,
+            role:m.__role||""
+          };
+        });
+        document.getElementById("search-results-title").textContent="";
+        var known = person.known_for_department==="Directing" ? "Director" : "Actor";
+        var subtitle=
+          "<div class='sr-person-name'>"+person.name+"</div>"+
+          "<div class='sr-person-meta'>"+known+" \u00b7 "+list.length+" film"+(list.length===1?"":"s")+" \u00b7 newest first</div>";
+        return renderSearchResultsGrid(content, list, subtitle);
+      });
+    }
+
+    if(!titleResults.length){
       content.innerHTML="<div class='ratings-empty'>no matches found</div>";
       return;
     }
-    var list=results.slice(0,18).map(function(m){
-      return {
-        id:m.id,
-        title:m.title,
-        year:m.release_date?m.release_date.slice(0,4):"",
-        poster:m.poster_path
-      };
-    });
-
-    /* Render the grid immediately with placeholder score slots */
-    var grid=document.createElement("div");
-    grid.className="ratings-grid";
-    list.forEach(function(m){
-      var card=document.createElement("div");
-      card.className="rating-card";
-      var posterHTML = m.poster
-        ? "<img class='rating-poster' src='https://image.tmdb.org/t/p/w342"+m.poster+"' alt=''/>"
-        : "<div class='rating-poster-fallback'>"+m.title+"</div>";
-      card.innerHTML=posterHTML+
-        "<div class='sr-score' data-id='"+m.id+"'>"+
-          "<div class='rating-stars-row' style='height:18px;'></div>"+
-        "</div>";
-      card.addEventListener("click",function(){
-        haptic();
-        openBrowsedMovie(m.id,m.title,m.year,m.poster);
-      });
-      grid.appendChild(card);
-    });
-    content.innerHTML="";
-    content.appendChild(grid);
-
-    /* Then fill in community averages with a single batched query */
-    var ids=list.map(function(m){ return m.id; });
-    return getCommunityAvgBatch(ids).then(function(map){
-      grid.querySelectorAll(".sr-score").forEach(function(slot){
-        var id=slot.getAttribute("data-id");
-        var info=map[id];
-        slot.innerHTML = (info && info.count>0)
-          ? proportionalStarsHTML(info.avg,16,true)
-          : "<div class='rating-stars-row' style='height:18px;justify-content:center;'><span style='font-size:10px;color:rgba(255,255,255,0.4);font-style:italic;font-family:system-ui,-apple-system,sans-serif;'>no ratings yet</span></div>";
-      });
-    });
-  }).catch(function(){
+    return renderTitleResults(content, titleResults);
+  }).catch(function(e){
+    console.error("[ratr] search failed:",e);
     content.innerHTML="<div class='ratings-empty'>something went wrong</div>";
   });
+}
+
+/* Title results keep relevance order (fuzzy score), not date order */
+function renderTitleResults(content, results){
+  var list=results.slice(0,18).map(function(m){
+    return {
+      id:m.id,
+      title:m.title,
+      year:m.release_date?m.release_date.slice(0,4):"",
+      poster:m.poster_path,
+      role:""
+    };
+  });
+  return renderSearchResultsGrid(content, list, "");
 }
 
 function renderBrowseDropdown(results){
