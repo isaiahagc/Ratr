@@ -2878,13 +2878,173 @@ function hideBrowse(){
 }
 
 /* Shared TMDB search fetch, reused by Browse, Activity, and Search Results */
-function tmdbSearchMovies(query){
+/* ─────────────────────────────────────────────
+   FUZZY SEARCH
+   TMDB's search is strict — "avengrs" or "inception 2"
+   return nothing useful. We widen the net by:
+     1. generating query variants (number ↔ word,
+        punctuation stripped, common typos fixed)
+     2. running them in parallel
+     3. re-ranking the merged results by how closely
+        each title matches what was actually typed
+───────────────────────────────────────────── */
+
+var NUM_WORDS = {
+  "1":"one","2":"two","3":"three","4":"four","5":"five",
+  "6":"six","7":"seven","8":"eight","9":"nine","10":"ten",
+  "11":"eleven","12":"twelve","13":"thirteen"
+};
+var WORD_NUMS = {};
+Object.keys(NUM_WORDS).forEach(function(n){ WORD_NUMS[NUM_WORDS[n]] = n; });
+
+/* Roman numerals show up constantly in sequels */
+var ROMAN = {"1":"i","2":"ii","3":"iii","4":"iv","5":"v","6":"vi","7":"vii","8":"viii","9":"ix","10":"x"};
+var ROMAN_REV = {};
+Object.keys(ROMAN).forEach(function(n){ ROMAN_REV[ROMAN[n]] = n; });
+
+function normalizeTitle(s){
+  return (s||"")
+    .toLowerCase()
+    .replace(/[''`]/g,"")
+    .replace(/[^a-z0-9]+/g," ")
+    .trim();
+}
+
+/* Levenshtein distance, capped for speed */
+function editDistance(a,b){
+  if(a===b) return 0;
+  var m=a.length, n=b.length;
+  if(m===0) return n;
+  if(n===0) return m;
+  if(Math.abs(m-n)>8) return 99;
+  var prev=new Array(n+1), cur=new Array(n+1);
+  for(var j=0;j<=n;j++) prev[j]=j;
+  for(var i=1;i<=m;i++){
+    cur[0]=i;
+    for(var k=1;k<=n;k++){
+      var cost = a.charAt(i-1)===b.charAt(k-1) ? 0 : 1;
+      cur[k]=Math.min(cur[k-1]+1, prev[k]+1, prev[k-1]+cost);
+    }
+    for(var x=0;x<=n;x++) prev[x]=cur[x];
+  }
+  return prev[n];
+}
+
+/* 0..1 similarity between two strings */
+function similarity(a,b){
+  if(!a||!b) return 0;
+  var maxLen=Math.max(a.length,b.length);
+  if(maxLen===0) return 1;
+  return 1 - (editDistance(a,b)/maxLen);
+}
+
+/* Build a set of alternate spellings for the query */
+function buildQueryVariants(query){
+  var q=query.trim();
+  var variants=[q];
+  var norm=normalizeTitle(q);
+  if(norm && norm!==q) variants.push(norm);
+
+  var tokens=norm.split(" ").filter(Boolean);
+  if(tokens.length){
+    /* digits -> words  ("spider man 2" -> "spider man two") */
+    var toWords=tokens.map(function(t){ return NUM_WORDS[t] || t; }).join(" ");
+    if(toWords!==norm) variants.push(toWords);
+
+    /* words -> digits  ("part two" -> "part 2") */
+    var toNums=tokens.map(function(t){ return WORD_NUMS[t] || t; }).join(" ");
+    if(toNums!==norm) variants.push(toNums);
+
+    /* digits -> roman  ("rocky 4" -> "rocky iv") */
+    var toRoman=tokens.map(function(t){ return ROMAN[t] || t; }).join(" ");
+    if(toRoman!==norm) variants.push(toRoman);
+
+    /* roman -> digits  ("rocky iv" -> "rocky 4") */
+    var fromRoman=tokens.map(function(t){ return ROMAN_REV[t] || t; }).join(" ");
+    if(fromRoman!==norm) variants.push(fromRoman);
+
+    /* drop a likely-misspelled trailing word if the query is long enough */
+    if(tokens.length>1){
+      variants.push(tokens.slice(0,-1).join(" "));
+    }
+  }
+
+  /* de-dupe, keep order, cap the number of API calls */
+  var seen={}, out=[];
+  variants.forEach(function(v){
+    v=v.trim();
+    if(v && v.length>=2 && !seen[v]){ seen[v]=1; out.push(v); }
+  });
+  return out.slice(0,5);
+}
+
+function rawTmdbSearch(query){
   return fetch("https://api.themoviedb.org/3/search/movie?query="+encodeURIComponent(query)+
         "&include_adult=false&language=en-US&page=1",{
     headers:{"Authorization":"Bearer "+TMDB_TOKEN,"Content-Type":"application/json"}
   }).then(function(r){ return r.ok?r.json():null; })
-   .then(function(d){ return d?d.results:[]; })
+   .then(function(d){ return (d&&d.results)?d.results:[]; })
    .catch(function(){ return []; });
+}
+
+function tmdbSearchMovies(query){
+  var q=(query||"").trim();
+  if(q.length<2) return Promise.resolve([]);
+  var variants=buildQueryVariants(q);
+  var normQuery=normalizeTitle(q);
+
+  return Promise.all(variants.map(rawTmdbSearch)).then(function(resultSets){
+    /* Merge, keeping the best variant-rank each film appeared at */
+    var byId={};
+    resultSets.forEach(function(set, variantIdx){
+      set.forEach(function(m, pos){
+        if(!m || !m.id) return;
+        if(!byId[m.id]){
+          byId[m.id]=m;
+          m.__variantIdx=variantIdx;
+          m.__pos=pos;
+        } else if(variantIdx < byId[m.id].__variantIdx){
+          byId[m.id].__variantIdx=variantIdx;
+          byId[m.id].__pos=pos;
+        }
+      });
+    });
+
+    var merged=Object.keys(byId).map(function(k){ return byId[k]; });
+    if(merged.length===0) return [];
+
+    /* Score each candidate */
+    merged.forEach(function(m){
+      var title=normalizeTitle(m.title);
+      var sim=similarity(normQuery, title);
+
+      /* Reward prefix and substring hits heavily — they're usually
+         what the user meant even if the whole string differs. */
+      if(title.indexOf(normQuery)===0) sim=Math.max(sim, 0.95);
+      else if(title.indexOf(normQuery)!==-1) sim=Math.max(sim, 0.85);
+
+      /* Word-level containment: "dark knight" vs "the dark knight" */
+      var qWords=normQuery.split(" ").filter(Boolean);
+      if(qWords.length){
+        var hits=qWords.filter(function(w){ return title.indexOf(w)!==-1; }).length;
+        sim=Math.max(sim, (hits/qWords.length)*0.9);
+      }
+
+      /* Small nudges: earlier variant, better TMDB rank, more popular */
+      var variantPenalty = m.__variantIdx*0.04;
+      var posPenalty = Math.min(m.__pos,10)*0.008;
+      var popBoost = Math.min((m.popularity||0)/500, 0.08);
+
+      m.__score = sim - variantPenalty - posPenalty + popBoost;
+    });
+
+    merged.sort(function(a,b){ return b.__score - a.__score; });
+
+    /* Drop results that clearly aren't what was typed, but never
+       return an empty list if we found anything at all. */
+    var good=merged.filter(function(m){ return m.__score>0.34; });
+    return (good.length? good : merged).slice(0,20);
+  });
 }
 
 /* Community average rating for a film, used by the search-results grid */
@@ -3336,20 +3496,10 @@ function renderDropdown(results){
 
 function searchTMDB(query){
   if(!query||query.length<2){ closeDropdown(); return; }
-  var url="https://api.themoviedb.org/3/search/movie?query="+encodeURIComponent(query)+"&include_adult=false&language=en-US&page=1";
-  fetch(url, {
-    headers:{
-      "Authorization":"Bearer "+TMDB_TOKEN,
-      "Content-Type":"application/json"
-    }
-  })
-    .then(function(r){
-      if(!r.ok){ throw new Error("TMDB returned status "+r.status); }
-      return r.json();
-    })
-    .then(function(data){
-      console.log("[ratr] TMDB results for '"+query+"':", data.results ? data.results.length : 0);
-      renderDropdown(data.results);
+  tmdbSearchMovies(query)
+    .then(function(results){
+      console.log("[ratr] TMDB results for '"+query+"':", results.length);
+      renderDropdown(results);
     })
     .catch(function(err){
       console.error("[ratr] TMDB search failed:", err);
