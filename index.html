@@ -2178,6 +2178,16 @@ var scoreEl  = document.getElementById("screen-score");
 var scrimEl  = document.getElementById("slide-scrim");
 var footerEl = document.getElementById("app-footer");
 var headerEl = document.getElementById("app-header");
+var headerLogoEl = document.getElementById("app-header-logo");
+var headerAuthEl = document.getElementById("app-header-auth");
+
+/* Header auth label reflects signed-in/guest state. Defined here (not
+   at the wiring section below) because bootAuth resolves synchronously
+   on most paths and calls this before the bottom of the script runs. */
+function updateHeaderAuth(){
+  if(!headerAuthEl) return;
+  headerAuthEl.textContent = currentUser ? "sign out" : "sign in";
+}
 
 /* ─────────────────────────────────────────────
    HEADER SCROLL BEHAVIOR
@@ -3624,19 +3634,10 @@ function goHome(){
 }
 
 /* Single global header: logo always goes home, auth button reflects
-   signed-in/guest state and either signs out or routes to auth. */
-var headerLogoEl = document.getElementById("app-header-logo");
-var headerAuthEl = document.getElementById("app-header-auth");
-
+   signed-in/guest state and either signs out or routes to auth.
+   (headerLogoEl / headerAuthEl / updateHeaderAuth are declared up in the
+   ELEMENTS section — bootAuth calls updateHeaderAuth before this point.) */
 headerLogoEl.addEventListener("click", goHome);
-
-function updateHeaderAuth(){
-  if(currentUser){
-    headerAuthEl.textContent = "sign out";
-  } else {
-    headerAuthEl.textContent = "sign in";
-  }
-}
 updateHeaderAuth();
 
 headerAuthEl.addEventListener("click", function(){
