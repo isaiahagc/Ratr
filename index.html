@@ -246,11 +246,16 @@ html,body{width:100%;height:100%;overflow:hidden;background:#0B2054;font-family:
 }
 
 /* ── FOOTER (persistent nav) ── */
+/* One primary action, centred. Apple's bottom bar is either a tab bar of 3-5
+   peers or a single primary action — two items, one of which duplicated
+   navigation, was neither. Home sits at the left edge as a quiet escape: on
+   pull-over screens the footer outranks the header, so this is the only home
+   affordance available there. */
 #app-footer{
   position:fixed;left:0;right:0;bottom:0;
   z-index:80;
   background:#0B2054;
-  display:flex;align-items:center;justify-content:space-between;
+  display:flex;align-items:center;justify-content:center;
   padding:14px 24px 16px;
   border-top:1px solid rgba(255,255,255,0.12);
   opacity:0;pointer-events:none;visibility:hidden;
@@ -268,8 +273,13 @@ html,body{width:100%;height:100%;overflow:hidden;background:#0B2054;font-family:
 }
 .footer-icon-btn:hover{background:rgba(255,255,255,0.1);transform:scale(1.08);}
 .footer-icon-btn svg{display:block;}
+#footer-browse{position:absolute;left:22px;}
+/* Centred on the footer, but narrowed so it always clears the absolutely
+   positioned home button on both sides. 96px = twice the home button's reach
+   past the footer padding, plus an 8px gap — a fixed max-width alone collided
+   on narrow phones. */
 #footer-calculator{
-  flex:1;max-width:230px;margin:0 18px;
+  width:calc(100% - 96px);max-width:250px;margin:0;
   height:42px;border-radius:14px;
   background:white;color:#0B2054;border:none;
   font-family:inherit;font-size:12px;font-weight:700;letter-spacing:1.2px;
@@ -300,12 +310,14 @@ html,body{width:100%;height:100%;overflow:hidden;background:#0B2054;font-family:
 }
 .ratings-inner{width:100%;max-width:560px;padding:0 0 110px;color:white;}
 .ratings-grid{
-  display:grid;grid-template-columns:repeat(4,1fr);
+  display:grid;grid-template-columns:repeat(3,minmax(0,1fr));
   gap:10px;padding:16px 20px 20px;
 }
+/* Search results stay 4-up — their cards carry only stars, no score numeral */
+.ratings-grid.sr-grid{grid-template-columns:repeat(4,minmax(0,1fr));}
 .rating-card{
   display:flex;flex-direction:column;align-items:center;gap:6px;
-  cursor:pointer;
+  cursor:pointer;min-width:0;
 }
 .rating-poster{
   width:100%;aspect-ratio:2/3;border-radius:8px;
@@ -330,7 +342,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:#0B2054;font-family:
 /* Proportional filled stars — no hollow outlines */
 .rating-stars-row{
   display:flex;align-items:center;justify-content:center;gap:5px;
-  height:18px;
+  height:18px;max-width:100%;overflow:hidden;
 }
 .rating-stars-clip{
   position:relative;height:18px;overflow:hidden;white-space:nowrap;
@@ -1373,12 +1385,6 @@ input.slider-input::-moz-range-track{background:transparent;height:0;}
     </svg>
   </button>
   <button id="footer-calculator">Calculator</button>
-  <button class="footer-icon-btn" id="footer-profile" title="profile">
-    <svg width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <circle cx="11" cy="7.2" r="4" stroke="white" stroke-width="2"/>
-      <path d="M2.8 20c0-4.4 3.7-7.5 8.2-7.5s8.2 3.1 8.2 7.5" stroke="white" stroke-width="2" stroke-linecap="round"/>
-    </svg>
-  </button>
 </div>
 
 </div>
@@ -1976,7 +1982,7 @@ function renderRatingsGrid(container, groups){
     var countBadge = g.entries.length>1
       ? "<div class='rating-count-badge'>"+g.entries.length+" entries</div>"
       : "";
-    card.innerHTML=posterHTML+proportionalStarsHTML(g.avgFinal||0, 16, true)+countBadge;
+    card.innerHTML=posterHTML+proportionalStarsHTML(g.avgFinal||0, 12, true)+countBadge;
     card.addEventListener("click",function(){
       haptic();
       openDetail(g);
@@ -3480,15 +3486,6 @@ document.getElementById("footer-calculator").addEventListener("click",function()
   enterCalculatorFresh();
 });
 
-document.getElementById("footer-profile").addEventListener("click",function(){
-  haptic();
-  dismissOverlays();
-  if(currentUser){
-    showRatings();
-  } else {
-    showBase('auth');
-  }
-});
 
 /* ─────────────────────────────────────────────
    BROWSER / GESTURE BACK
@@ -3860,7 +3857,7 @@ function getCommunityAvgBatch(tmdbIds){
 /* Shared renderer for the results grid */
 function renderSearchResultsGrid(content, list, subtitleHTML){
   var grid=document.createElement("div");
-  grid.className="ratings-grid";
+  grid.className="ratings-grid sr-grid";
   list.forEach(function(m){
     var card=document.createElement("div");
     card.className="rating-card";
