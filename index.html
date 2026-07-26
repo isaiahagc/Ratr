@@ -1607,7 +1607,14 @@ function refreshSession(refreshToken, cb){
 }
 
 /* ── Check for OAuth redirect callback ── */
-function handleOAuthCallback(){
+/* `onReady` fires once currentUser is a real user object, NOT when the token
+   lands. The implicit-flow hash carries no user id, so the session is seeded
+   with an empty one and the id only arrives from /auth/v1/user a round trip
+   later. Signalling "authed" before that let the landing screen build
+   `user_id=eq.` with an empty value -- a malformed query that always failed,
+   which is why a fresh login reliably showed "couldn't load your activity"
+   until any later navigation re-ran the load against a populated id. */
+function handleOAuthCallback(onReady){
   var hash=window.location.hash;
   if(!hash) return false;
   var params={};
@@ -1622,18 +1629,24 @@ function handleOAuthCallback(){
       expires_at: Date.now()/1000 + parseInt(params.expires_in||3600),
       user:{id:params.user||""}
     });
-    /* Fetch full user object */
+    /* Clean URL */
+    history.replaceState(null,"",window.location.pathname);
+    window.__ratrJustAuthed=true;
+    /* Fetch full user object, and only then let boot continue. */
     fetch(SUPA_URL+"/auth/v1/user",{
       headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+params.access_token}
     }).then(function(r){return r.json();})
     .then(function(u){
-      currentUser=u;
-      var s=loadSession();
-      if(s){s.user=u;saveSession(s);}
+      if(u && u.id){
+        currentUser=u;
+        var s=loadSession();
+        if(s){s.user=u;saveSession(s);}
+      }
+    }).catch(function(e){
+      console.error("[ratr] user fetch failed:",e);
+    }).then(function(){
+      if(onReady) onReady();
     });
-    /* Clean URL */
-    history.replaceState(null,"",window.location.pathname);
-    window.__ratrJustAuthed=true;
     return true;
   }
   return false;
@@ -1641,8 +1654,12 @@ function handleOAuthCallback(){
 
 /* ── Boot: check session or OAuth callback ── */
 function bootAuth(onAuthed, onNeedsAuth){
-  var authedViaCallback=handleOAuthCallback();
-  if(authedViaCallback){ onAuthed(); return; }
+  /* onAuthed is deferred into the callback: it must not run until the user id
+     has actually arrived, or the first activity load is built on an empty id. */
+  var authedViaCallback=handleOAuthCallback(function(){
+    if(currentUser && currentUser.id) onAuthed(); else onNeedsAuth();
+  });
+  if(authedViaCallback) return;
   var session=loadSession();
   if(!session){ onNeedsAuth(); return; }
   var now=Date.now()/1000;
@@ -2145,13 +2162,23 @@ function renderRatingsGrid(container, groups){
   container.appendChild(grid);
 }
 
-function loadRatings(){
+/* `quiet` refreshes in place: no loading placeholder, and the existing grid is
+   left alone until real data arrives to replace it. Used when returning from a
+   sheet, where the content is already on screen and correct -- tearing it down
+   to a spinner for the length of a round trip is what read as a glitch. */
+function loadRatings(quiet){
   var content=document.getElementById("ratings-content");
-  content.innerHTML="<div class='ratings-loading'>loading your ratings…</div>";
   if(!currentUser){
     content.innerHTML="<div class='ratings-empty'>sign in to see your ratings</div>";
     return;
   }
+  /* No id yet means the session is still resolving; a query built on it would
+     be malformed. Wait to be called again rather than reporting a failure. */
+  if(!currentUser.id){
+    if(!quiet) content.innerHTML="<div class='ratings-loading'>loading your ratings…</div>";
+    return;
+  }
+  if(!quiet) content.innerHTML="<div class='ratings-loading'>loading your ratings…</div>";
   fetchAndGroupUserRatings().then(function(groups){
     if(!groups||groups.length===0){
       content.innerHTML="<div class='ratings-empty'>no ratings yet — go rate something</div>";
@@ -2160,12 +2187,12 @@ function loadRatings(){
     renderRatingsGrid(content, groups);
   }).catch(function(e){
     console.error("[ratr] ratings load failed:",e);
-    content.innerHTML="<div class='ratings-empty'>couldn't load your ratings</div>";
+    if(!quiet) content.innerHTML="<div class='ratings-empty'>couldn't load your ratings</div>";
   });
 }
 
 /* ── ACTIVITY (landing screen) ── */
-function loadActivity(){
+function loadActivity(quiet){
   var content=document.getElementById("activity-content");
   if(!currentUser){
     content.innerHTML=
@@ -2177,7 +2204,14 @@ function loadActivity(){
     if(b) b.addEventListener("click",function(){ haptic(); showBase('auth'); });
     return;
   }
-  content.innerHTML="<div class='ratings-loading'>loading your activity…</div>";
+  /* No id yet means the session is still resolving; a query built on it would be
+     malformed and come back as an error. Wait to be called again rather than
+     reporting a failure the user has to navigate away from to clear. */
+  if(!currentUser.id){
+    if(!quiet) content.innerHTML="<div class='ratings-loading'>loading your activity…</div>";
+    return;
+  }
+  if(!quiet) content.innerHTML="<div class='ratings-loading'>loading your activity…</div>";
   fetchAndGroupUserRatings().then(function(groups){
     if(!groups||groups.length===0){
       content.innerHTML="<div class='ratings-empty'>no ratings yet — search for a movie above or use the calculator</div>";
@@ -2186,7 +2220,7 @@ function loadActivity(){
     renderRatingsGrid(content, groups);
   }).catch(function(e){
     console.error("[ratr] activity load failed:",e);
-    content.innerHTML="<div class='ratings-empty'>couldn't load your activity</div>";
+    if(!quiet) content.innerHTML="<div class='ratings-empty'>couldn't load your activity</div>";
   });
 }
 
@@ -3438,15 +3472,18 @@ function hideDetail(){
     detailEl.style.pointerEvents="none";
     SH.expand=0; SH.drag=0;
     sheetPaint();
-    /* Only refresh if we actually stayed on that base screen */
+    /* Only refresh if we actually stayed on that base screen. Refresh QUIETLY:
+       the grid is already on screen and correct, so it stays put until new data
+       replaces it. Reloading loudly tore it down to a spinner on every single
+       dismissal, which is what flickered. */
     if(currentBase===baseAtDismiss){
-      if(currentBase==="ratings") loadRatings();
+      if(currentBase==="ratings") loadRatings(true);
       /* Only repaint activity when it's showing recent ratings. If a search
          is active its results are still rendered — reloading would throw
          them away and flash a spinner for no reason. */
       if(currentBase==="activity"){
         var q=activityInput?activityInput.value.trim():"";
-        if(q.length<2) loadActivity();
+        if(q.length<2) loadActivity(true);
       }
     }
   });
