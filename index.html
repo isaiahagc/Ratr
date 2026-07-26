@@ -63,7 +63,8 @@ html,body{width:100%;height:100%;overflow:hidden;background:#0B2054;font-family:
 .calc-scroll{
   position:relative;z-index:2;padding-top:53px;
   width:100%;flex:1;min-height:0;
-  overflow-y:auto;-webkit-overflow-scrolling:touch;
+  /* legacy iOS scroller removed -- see the note on .detail-scroll */
+  overflow-y:auto;
   display:flex;flex-direction:column;align-items:center;
 }
 
@@ -136,7 +137,8 @@ html,body{width:100%;height:100%;overflow:hidden;background:#0B2054;font-family:
 .activity-scroll{
   position:relative;z-index:2;
   width:100%;flex:1;min-height:0;
-  overflow-y:auto;-webkit-overflow-scrolling:touch;
+  /* legacy iOS scroller removed -- see the note on .detail-scroll */
+  overflow-y:auto;
   display:flex;flex-direction:column;align-items:center;
   padding-top:53px;
 }
@@ -180,7 +182,8 @@ html,body{width:100%;height:100%;overflow:hidden;background:#0B2054;font-family:
 .search-results-scroll{
   position:relative;z-index:2;
   width:100%;flex:1;min-height:0;
-  overflow-y:auto;-webkit-overflow-scrolling:touch;
+  /* legacy iOS scroller removed -- see the note on .detail-scroll */
+  overflow-y:auto;
   display:flex;flex-direction:column;align-items:center;
   padding-top:53px;
 }
@@ -307,7 +310,8 @@ html,body{width:100%;height:100%;overflow:hidden;background:#0B2054;font-family:
 .ratings-scroll{
   position:relative;z-index:2;padding-top:53px;
   width:100%;flex:1;min-height:0;
-  overflow-y:auto;-webkit-overflow-scrolling:touch;
+  /* legacy iOS scroller removed -- see the note on .detail-scroll */
+  overflow-y:auto;
   display:flex;flex-direction:column;align-items:center;
 }
 .ratings-inner{width:100%;max-width:560px;padding:0 0 110px;color:white;}
@@ -480,9 +484,19 @@ html,body{width:100%;height:100%;overflow:hidden;background:#0B2054;font-family:
    of it. They still paint above .detail-persist / .detail-ambient by DOM order.
    overflow-anchor is off because swapping panel content makes the browser
    "helpfully" restore a scroll offset, which opens the sheet part-scrolled. */
+/* -webkit-overflow-scrolling:touch is deliberately ABSENT, and must stay absent.
+   On iOS it hands the element to the legacy accelerated scroller, which
+   (a) creates a stacking context -- trapping the sticky tab dock exactly the way
+   the z-index notes above describe, so the pill sank behind the chrome blur on
+   phones while looking correct on desktop, where the property is ignored; and
+   (b) does not cope with an ancestor whose transform changes mid-scroll, so the
+   inset shrink written by sheetPaint() reset the scroll offset the moment
+   scrollTop came back under expandTravel -- the sheet "flinging to the top" on
+   the first scroll down. It has been a no-op since iOS 13 anyway: momentum
+   scrolling is the default for overflow:auto. */
 .detail-scroll{
   width:100%;flex:1;min-height:0;
-  overflow-y:auto;-webkit-overflow-scrolling:touch;
+  overflow-y:auto;
   display:flex;flex-direction:column;align-items:center;
   position:relative;
   overflow-anchor:none;
@@ -3190,6 +3204,7 @@ var SHEET_DOCK_TOP = detailDockEl ? (parseFloat(getComputedStyle(detailDockEl).t
 
 var SH = { open:false, enter:0, drag:0, expand:0, dragging:false,
            cancelSpring:null, chromeStart:120, chromeEnd:190, lastH:-1,
+           lastTransform:"", lastRadius:"",
            accent:{r:46,g:110,b:119} };
 
 function sheetHeight(){ return detailEl.getBoundingClientRect().height || 1; }
@@ -3208,9 +3223,15 @@ function measureSheetChrome(){
 
 function sheetPaint(){
   var insetNow = SHEET_T.inset * (1 - SH.expand);
-  detailEl.style.transform = "translateY(" + (SH.enter + SH.drag + insetNow) + "px)";
+  /* Only write when the value actually changes. This is the sheet's own
+     transform, and the scroller is a descendant of it -- touching it on every
+     scroll frame gives iOS repeated chances to reset the inner scroll offset,
+     for no benefit, since once expand pins at 1 the value is constant anyway. */
+  var tf = "translateY(" + (SH.enter + SH.drag + insetNow) + "px)";
+  if(tf !== SH.lastTransform){ SH.lastTransform = tf; detailEl.style.transform = tf; }
   var r = SHEET_T.radius * (1 - SH.expand);
-  detailEl.style.borderRadius = r + "px " + r + "px 0 0";
+  var rad = r + "px " + r + "px 0 0";
+  if(rad !== SH.lastRadius){ SH.lastRadius = rad; detailEl.style.borderRadius = rad; }
 
   /* how "present" the sheet is overall: 0 when fully off-screen, 1 when seated */
   var presence = 1 - sheetClamp((SH.enter + SH.drag) / sheetHeight(), 0, 1);
