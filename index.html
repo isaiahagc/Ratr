@@ -819,6 +819,39 @@ html,body{width:100%;height:100%;overflow:hidden;background:#0B2054;font-family:
 }
 .detail-tab.active{color:white;}
 .detail-tab:hover:not(.active){color:rgba(255,255,255,0.8);}
+
+/* Rate-form progress. Pill-width, but on the dock's BOTTOM EDGE rather than on
+   the pill itself: .detail-tab-indicator is already a white element sliding
+   horizontally inside that band, and a second one growing across the same 40px
+   would read as one broken control. Always present so the dock's height never
+   changes between tabs; only its opacity is toggled. */
+.detail-progress{
+  position:relative;height:3px;margin:10px 2px 0;border-radius:2px;
+  background:rgba(255,255,255,0.08);
+  opacity:0;pointer-events:none;
+  transition:opacity 240ms ease;
+}
+.detail-progress.on{opacity:1;}
+.detail-progress-fill{
+  position:absolute;left:0;top:0;bottom:0;width:0%;
+  border-radius:2px;
+  background:var(--accent,#2E6E77);
+  box-shadow:0 0 6px color-mix(in srgb, var(--accent,#2E6E77) 70%, transparent);
+  /* the tab indicator's own curve, so the dock reads as a single object */
+  transition:width 380ms cubic-bezier(0.22,1,0.36,1),
+             background 380ms ease, box-shadow 380ms ease;
+}
+/* Completion lifts to white and swells once -- the reward Apple never omits. */
+.detail-progress.complete .detail-progress-fill{
+  background:#fff;
+  box-shadow:0 0 10px rgba(255,255,255,0.75);
+  animation:ra-progress-pulse 620ms cubic-bezier(0.22,1,0.36,1) 1;
+}
+@keyframes ra-progress-pulse{
+  0%{transform:scaleY(1);}
+  35%{transform:scaleY(2.1);}
+  100%{transform:scaleY(1);}
+}
 .detail-panel{display:none;padding:0;}
 .detail-panel.active{display:block;}
 
@@ -1573,6 +1606,9 @@ input.slider-input::-moz-range-track{background:transparent;height:0;}
           <div class="detail-tab" data-tab="again">Rate Again</div>
           <div class="detail-tab" data-tab="avg">Avg Ratr Score</div>
         </div>
+        <div class="detail-progress" id="detail-progress">
+          <div class="detail-progress-fill" id="detail-progress-fill"></div>
+        </div>
       </div>
       <div class="detail-panel active" id="panel-mine"></div>
       <div class="detail-panel" id="panel-again"></div>
@@ -1945,11 +1981,29 @@ function getDominantColor(imgPath, size){
 
 /* Both gradient layers read --accent off #screen-detail, so setting that one
    custom property re-tints the whole sheet. */
+/* Scales every channel up until the brightest one hits `target`. Multiplying all
+   three by the same factor leaves their ratios untouched, so hue and saturation
+   are preserved exactly and only brightness rises -- which is what small lit
+   elements need. Posters skew dark, and a dim accent on a 3px bar reads as grey.
+   Mixing toward white would have washed the colour out instead. */
+function brightenAccent(c){
+  var max=Math.max(c.r,c.g,c.b);
+  var target=215;
+  if(!max || max>=target) return {r:c.r,g:c.g,b:c.b};
+  var k=target/max;
+  return {r:Math.min(255,Math.round(c.r*k)),
+          g:Math.min(255,Math.round(c.g*k)),
+          b:Math.min(255,Math.round(c.b*k))};
+}
+
 function setDetailAccent(color){
   var screen=document.getElementById("screen-detail");
   if(!screen) return;
   var hex = color ? ("rgb("+color.r+","+color.g+","+color.b+")") : "#2E6E77";
   screen.style.setProperty("--accent", hex);
+  var bright = brightenAccent(color || {r:46,g:110,b:119});
+  screen.style.setProperty("--accent-bright",
+    "rgb("+bright.r+","+bright.g+","+bright.b+")");
   /* The condensed bar's top tint is painted from JS, not from --accent, so it
      needs the value too. Guarded because this runs during boot, before the
      sheet engine's state object is assigned. */
@@ -2423,6 +2477,7 @@ function openDetail(group){
   /* An unrated film has nothing to show on "My Ratr Score", so open straight on
      the rate tab and name it for what it is. Once there are entries, the score
      is the point of opening the sheet, so default back to the left tab. */
+  updateRateProgress();
   var hasRated = entryCount > 0;
   var againTab = document.querySelector('.detail-tab[data-tab="again"]');
   if(againTab) againTab.textContent = hasRated ? "Rate Again" : "Rate This Film";
@@ -2654,11 +2709,49 @@ function setDetailTab(name){
   document.getElementById("panel-mine").classList.toggle("active", name==="mine");
   document.getElementById("panel-avg").classList.toggle("active", name==="avg");
   document.getElementById("panel-again").classList.toggle("active", name==="again");
+  /* The bar only means anything against the rate form. It stays in the layout on
+     every tab so the dock's height -- and with it the blur geometry -- never
+     shifts when you switch; only its opacity changes. */
+  var prog=document.getElementById("detail-progress");
+  if(prog) prog.classList.toggle("on", name==="again");
 }
 
 /* ─── RATE AGAIN PANEL ─── */
 var RA_KEYS=["S","D","A","C","Rs","J"];
 var raRatings={}, raLastTap={}, raMFlag=null, raSliders={P:50,K:50,F:50};
+var RA_SLIDER_KEYS=["P","K","F"];
+/* Sliders sit at 50 by default, so "has a value" is not the same as "answered".
+   Tracking touch separately is what lets the bar genuinely start at zero rather
+   than at 30% before the user has done anything. */
+var raSlidersTouched={P:false,K:false,F:false};
+var raProgressWasComplete=false;
+
+function raProgressCount(){
+  var n=0;
+  RA_KEYS.forEach(function(k){ if(raRatings[k]>0) n++; });
+  if(raMFlag!==null) n++;
+  RA_SLIDER_KEYS.forEach(function(k){ if(raSlidersTouched[k]) n++; });
+  return n;
+}
+function raProgressTotal(){ return RA_KEYS.length + 1 + RA_SLIDER_KEYS.length; }
+
+function updateRateProgress(){
+  var el=document.getElementById("detail-progress");
+  var fill=document.getElementById("detail-progress-fill");
+  if(!el||!fill) return;
+  var total=raProgressTotal(), n=raProgressCount();
+  fill.style.width=(n/total*100).toFixed(1)+"%";
+  var complete = n>=total;
+  el.classList.toggle("complete", complete);
+  /* A firmer haptic the moment it fills, and only on the transition -- the
+     per-answer tick is already fired by the input handlers themselves. */
+  if(complete && !raProgressWasComplete) haptic([12,40,18]);
+  raProgressWasComplete=complete;
+  /* The blur region reaches to the progress bar once rating has begun, and its
+     geometry is only recomputed inside sheetPaint -- which otherwise runs on
+     scroll. Without this the region would not grow until the next scroll. */
+  if(typeof SH!=="undefined" && SH && SH.open) sheetPaint();
+}
 
 function raRow(name,sub,key,quip){
   return "<div class='rating-row'>"+
@@ -2717,6 +2810,7 @@ function raBuildStars(key){
         } else { raRatings[key]=v; }
         raLastTap[key]=v;
         raDrawStars(key);
+        updateRateProgress();
       });
       wrap.appendChild(star);
     })(i);
@@ -2808,6 +2902,8 @@ function buildRateAgainPanel(row){
   RA_KEYS.forEach(function(k){ raRatings[k]=0; raLastTap[k]=null; });
   raMFlag=null;
   raSliders={P:50,K:50,F:50};
+  raSlidersTouched={P:false,K:false,F:false};
+  raProgressWasComplete=false;
 
   var p=document.getElementById("panel-again");
   p.innerHTML=
@@ -2849,6 +2945,7 @@ function buildRateAgainPanel(row){
       p.querySelectorAll("#ra-music-grid .music-btn").forEach(function(b){b.classList.remove("selected");});
       btn.classList.add("selected");
       raMFlag=parseInt(btn.getAttribute("data-flag"));
+      updateRateProgress();
     });
   });
 
@@ -2861,6 +2958,8 @@ function buildRateAgainPanel(row){
       if(val===50&&raw!==50) sl.value=50;
       raSliders[k]=val;
       document.getElementById("ra-val-"+k).textContent=val;
+      raSlidersTouched[k]=true;
+      updateRateProgress();
     });
   });
 
@@ -3287,6 +3386,7 @@ var detailChromeRowEl  = document.getElementById("detail-chrome-row");
 var detailBlurLayers   = document.querySelectorAll("#detail-chrome .blur-layer");
 var detailDockEl    = document.querySelector("#screen-detail .detail-tabs-dock");
 var detailPillEl    = document.querySelector("#screen-detail .detail-tabs");
+var detailProgressEl= document.getElementById("detail-progress");
 var detailHandleEl  = document.getElementById("detail-handle-zone");
 var detailPersistEl = document.getElementById("detail-persist");
 var detailAmbientEl = document.getElementById("detail-ambient");
@@ -3396,7 +3496,21 @@ function sheetPaint(){
      cached measurement stale. */
   var dockGap = (dockRect.top - scRect.top) - SHEET_DOCK_TOP;
   var dockOp  = 1 - sheetClamp(dockGap / SHEET_T.dockLead, 0, 1);
-  var pillBot = SHEET_DOCK_TOP + (detailPillEl.getBoundingClientRect().bottom - dockRect.top);
+  /* The region reaches to whatever the dock is actually protecting. Normally
+     that is the pill's bottom edge. Once the rate form has been engaged the
+     progress bar is lit, and content sliding under IT needs blurring too, so the
+     region extends to the bar's bottom instead -- about 13px further. Before the
+     first tap the bar is an unlit hairline with nothing behind it worth hiding,
+     so it stays out of the calculation and the resting geometry is unchanged.
+     chromeTail is deliberately NOT scaled: the dissolve is a fixed length, only
+     where it starts moves. */
+  var protectedBottom = detailPillEl.getBoundingClientRect().bottom;
+  if(detailProgressEl && detailProgressEl.classList.contains("on")
+     && typeof raProgressCount==="function" && raProgressCount() > 0){
+    var barBottom = detailProgressEl.getBoundingClientRect().bottom;
+    if(barBottom > protectedBottom) protectedBottom = barBottom;
+  }
+  var pillBot = SHEET_DOCK_TOP + (protectedBottom - dockRect.top);
   /* Only the BOTTOM of the region tracks the pill. The ramp's start stays put,
      so pinning lengthens the dissolve instead of dragging a slab of
      full-strength blur and tint down with it. */
