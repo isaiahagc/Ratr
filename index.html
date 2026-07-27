@@ -134,8 +134,12 @@ html,body{width:100%;height:100%;overflow:hidden;background:#0B2054;font-family:
       rgba(206,124,46,0.087) 60%, rgba(206,124,46,0.058) 70%, rgba(206,124,46,0.035) 80%,
       rgba(206,124,46,0.017) 89%, rgba(206,124,46,0) 100%);
 }
+/* z-index deliberately AUTO, exactly as on .detail-scroll: a stacking context
+   here would trap the sticky search dock and no z-index on it could lift it
+   above .activity-chrome, so the bar would sink behind its own blur. It still
+   paints above .default-persist / .default-glow by DOM order. */
 .activity-scroll{
-  position:relative;z-index:2;
+  position:relative;
   width:100%;flex:1;min-height:0;
   /* legacy iOS scroller removed -- see the note on .detail-scroll */
   overflow-y:auto;
@@ -143,17 +147,40 @@ html,body{width:100%;height:100%;overflow:hidden;background:#0B2054;font-family:
   padding-top:53px;
 }
 .activity-inner{width:100%;max-width:560px;padding:0 0 30px;color:white;}
-.activity-search-section{padding:18px 20px 6px;}
+/* Pins under the app header, the same way .detail-tabs-dock pins under the
+   condensed bar. top is 0, NOT the 53px header height: the scroller already
+   carries padding-top:53px and the sticky inset is resolved from the content
+   edge, so the two add up -- top:53px parked the bar at 106 instead of pinning
+   it at 53. The padding alone puts it exactly under the header. */
+.activity-search-section{position:sticky;top:0;z-index:6;padding:18px 20px 6px;}
 .inline-search-wrap{position:relative;width:100%;}
+/* Liquid glass, identical material to .detail-tabs: translucent fill with a
+   specular rim along the top edge, a darker rim beneath, and a drop shadow to
+   lift it off whatever it sits on. No backdrop-filter of its own -- nesting one
+   inside the region .activity-chrome is already blurring double-filters and
+   muddies the glass, the same lesson as the tab pill. */
 .inline-search-input{
   width:100%;height:46px;padding:0 15px;
-  background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.22);border-radius:14px;
+  background:linear-gradient(180deg, rgba(255,255,255,0.20), rgba(255,255,255,0.11));
+  border:1px solid rgba(255,255,255,0.30);border-radius:14px;
+  box-shadow:0 6px 18px rgba(0,0,0,0.30),
+             0 1px 3px rgba(0,0,0,0.22),
+             inset 0 1px 0.5px rgba(255,255,255,0.55),
+             inset 0 -1px 1px rgba(0,0,0,0.16);
   outline:none;color:white;font-size:16px;caret-color:white;
   font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;letter-spacing:0.2px;
   transition:border-color 150ms ease, background 150ms ease;
-  backdrop-filter:blur(16px) saturate(1.3);-webkit-backdrop-filter:blur(16px) saturate(1.3);
 }
-.inline-search-input:focus{border-color:rgba(255,255,255,0.55);background:rgba(255,255,255,0.11);}
+.inline-search-input:focus{
+  border-color:rgba(255,255,255,0.55);
+  background:linear-gradient(180deg, rgba(255,255,255,0.26), rgba(255,255,255,0.15));
+}
+
+/* Progressive blur behind the search bar. Same stack, same numbers as the
+   sheet's condensed bar -- see SHEET_T. Sits at z 5, under the dock at 6. */
+.activity-chrome{position:absolute;top:0;left:0;right:0;z-index:5;pointer-events:none;}
+.activity-chrome-blur{position:absolute;top:0;left:0;right:0;height:145px;}
+.activity-chrome-tint{position:absolute;top:0;left:0;right:0;height:145px;}
 .inline-search-input::placeholder{color:rgba(255,255,255,0.4);font-style:italic;font-family:system-ui,-apple-system,sans-serif;}
 .inline-search-input.open{border-radius:12px 12px 0 0;border-bottom-color:transparent;}
 .inline-search-dropdown{
@@ -482,8 +509,15 @@ html,body{width:100%;height:100%;overflow:hidden;background:#0B2054;font-family:
    tab dock inside it -- no z-index on the dock could then lift it above
    .detail-chrome, so the tabs got smeared by the blur instead of riding on top
    of it. They still paint above .detail-persist / .detail-ambient by DOM order.
-   overflow-anchor is off because swapping panel content makes the browser
-   "helpfully" restore a scroll offset, which opens the sheet part-scrolled. */
+   overflow-anchor is deliberately LEFT ON. Turning it off (the prototype's fix
+   for a sheet opening part-scrolled) also disables the browser's compensation
+   for content changing height ABOVE the scroll position -- and this sheet does
+   exactly that on every open, when the async TMDB fill turns a one-line
+   "loading film details" into two rows of chips. With anchoring off, everything
+   below shifted down and the poster reappeared: the scroll "jumping to the top".
+   The part-scrolled open is handled properly instead, by showDetail() zeroing
+   scrollTop explicitly -- and at scrollTop 0 there is nothing above the
+   viewport for anchoring to act on, so the two cannot conflict. */
 /* -webkit-overflow-scrolling:touch is deliberately ABSENT, and must stay absent.
    On iOS it hands the element to the legacy accelerated scroller, which
    (a) creates a stacking context -- trapping the sticky tab dock exactly the way
@@ -499,7 +533,6 @@ html,body{width:100%;height:100%;overflow:hidden;background:#0B2054;font-family:
   overflow-y:auto;
   display:flex;flex-direction:column;align-items:center;
   position:relative;
-  overflow-anchor:none;
 }
 
 /* ── PULL-OVER SHEET CHROME ──
@@ -528,7 +561,8 @@ html,body{width:100%;height:100%;overflow:hidden;background:#0B2054;font-family:
    (blur composes as sqrt of the sum of squares) falls smoothly to nothing.
    Masks are elliptical so the boundary curves under the pill. */
 .detail-chrome-blur{position:absolute;top:0;left:0;right:0;height:110px;}
-.detail-chrome-blur .blur-layer{position:absolute;top:0;left:0;right:0;bottom:0;}
+/* shared by every progressive-blur stack in the app */
+.blur-layer{position:absolute;top:0;left:0;right:0;bottom:0;}
 /* Tint is its own element above the stack: as a background on a blurred element
    it would be sampled by the layers above it and smeared. */
 .detail-chrome-tint{position:absolute;top:0;left:0;right:0;height:110px;}
@@ -1211,6 +1245,18 @@ input.slider-input::-moz-range-track{background:transparent;height:0;}
 <div class="screen" id="screen-activity">
   <div class="default-persist"><div class="grad-noise"></div></div>
   <div class="default-glow"></div>
+  <!-- Sibling of the scroller, not inside it, so it stays put while content
+       passes underneath. Same arrangement as .detail-chrome on the sheet. -->
+  <div class="activity-chrome" id="activity-chrome">
+    <div class="activity-chrome-blur" id="activity-chrome-blur">
+      <div class="blur-layer"></div>
+      <div class="blur-layer"></div>
+      <div class="blur-layer"></div>
+      <div class="blur-layer"></div>
+      <div class="blur-layer"></div>
+    </div>
+    <div class="activity-chrome-tint" id="activity-chrome-tint"></div>
+  </div>
   <div class="activity-scroll">
     <div class="activity-inner">
       <div class="activity-search-section">
@@ -1521,13 +1567,16 @@ input.slider-input::-moz-range-track{background:transparent;height:0;}
         <div class="detail-tabs">
           <div class="detail-tab-indicator" id="detail-tab-indicator"></div>
           <div class="detail-tab active" data-tab="mine">My Ratr Score</div>
-          <div class="detail-tab" data-tab="avg">Avg Ratr Score</div>
+          <!-- Centre slot. Its label is rewritten per film by openDetail:
+               "Rate This Film" when there is nothing rated yet, "Rate Again"
+               once there is. -->
           <div class="detail-tab" data-tab="again">Rate Again</div>
+          <div class="detail-tab" data-tab="avg">Avg Ratr Score</div>
         </div>
       </div>
       <div class="detail-panel active" id="panel-mine"></div>
-      <div class="detail-panel" id="panel-avg"></div>
       <div class="detail-panel" id="panel-again"></div>
+      <div class="detail-panel" id="panel-avg"></div>
     </div>
   </div>
 </div>
@@ -2371,7 +2420,13 @@ function openDetail(group){
   /* ── Tab 3: rate again ── */
   buildRateAgainPanel(group);
 
-  setDetailTab("mine");
+  /* An unrated film has nothing to show on "My Ratr Score", so open straight on
+     the rate tab and name it for what it is. Once there are entries, the score
+     is the point of opening the sheet, so default back to the left tab. */
+  var hasRated = entryCount > 0;
+  var againTab = document.querySelector('.detail-tab[data-tab="again"]');
+  if(againTab) againTab.textContent = hasRated ? "Rate Again" : "Rate This Film";
+  setDetailTab(hasRated ? "mine" : "again");
   showDetail();
 }
 
@@ -2589,7 +2644,11 @@ function setDetailTab(name){
   document.querySelectorAll(".detail-tab").forEach(function(t){
     t.classList.toggle("active", t.getAttribute("data-tab")===name);
   });
-  var tabIdx={mine:0,avg:1,again:2}[name]||0;
+  /* Indices are the pill's VISUAL order, which is mine | again | avg -- the
+     rate tab sits in the centre. The indicator slides by index, so this map has
+     to track the markup order, not the panel ids' alphabetical or historical
+     order. */
+  var tabIdx={mine:0,again:1,avg:2}[name]||0;
   var ind=document.getElementById("detail-tab-indicator");
   if(ind) ind.style.transform="translateX(calc("+tabIdx+" * (100% + 1.6px)))";
   document.getElementById("panel-mine").classList.toggle("active", name==="mine");
@@ -3243,6 +3302,53 @@ var SH = { open:false, enter:0, drag:0, expand:0, dragging:false,
 
 function sheetHeight(){ return detailEl.getBoundingClientRect().height || 1; }
 
+/* Paints one progressive-blur stack: N layers whose elliptical masks peel off
+   with depth, plus the tint above them. Shared verbatim by the sheet's
+   condensed bar and the home screen's search dock, so the two cannot drift --
+   the only things that differ are the elements, the region height and how
+   strongly it is engaged. `state` just carries lastH for the geometry cache. */
+function paintChromeStack(o){
+  /* Blur composes as sqrt(sum of squares), so N stacked layers of radius s read
+     as s*sqrt(N) where they overlap -- solve back so chromeBlur stays the
+     effective peak. */
+  var step = o.op * SHEET_T.chromeBlur / Math.sqrt(SHEET_LAYERS);
+  /* Masks only move when the geometry does, so don't rebuild five gradient
+     strings on every scroll frame. */
+  var geomChanged = Math.abs(o.H - o.state.lastH) > 0.25;
+  if (geomChanged){
+    o.state.lastH = o.H;
+    o.blur.style.height = o.H.toFixed(1) + "px";
+    o.tint.style.height = o.H.toFixed(1) + "px";
+  }
+  for (var li=0; li<o.layers.length; li++){
+    var L = o.layers[li];
+    var end = o.plateau + ((li+1)/SHEET_LAYERS) * (o.H - o.plateau);
+    /* Saturation belongs on exactly one layer. On all five it compounds into a
+       neon smear; the deepest layer is the one that spans everything. */
+    var lfx = "blur(" + step.toFixed(2) + "px)"
+            + (li === o.layers.length-1
+                 ? " saturate(" + (1 + SHEET_T.chromeSat*o.op).toFixed(2) + ")" : "");
+    L.style.backdropFilter = lfx;
+    L.style.webkitBackdropFilter = lfx;
+    if (geomChanged){
+      var lm = sheetEllipseAt(end, SHEET_T.chromeEdge, "rgba(0,0,0,", 1);
+      L.style.webkitMaskImage = lm;
+      L.style.maskImage = lm;
+    }
+  }
+  /* Two stacked tints. The accent sits on top and dies out early so a breath of
+     its colour survives at the very top of the glass; it is anchored in px so
+     growing the region cannot drag it downward. The navy base fades on exactly
+     the mask's curve -- a shorter one would draw the edge by itself. */
+  var A = o.accent;
+  var t1=(0.20*o.op).toFixed(3), t2=(0.11*o.op).toFixed(3), t3=(0.03*o.op).toFixed(3);
+  var acc = "rgba("+A.r+","+A.g+","+A.b+",";
+  o.tint.style.background =
+    "linear-gradient(180deg, "+acc+t1+") 0px, "+acc+t2+") 30px, "
+      + acc+t3+") 52px, "+acc+"0) 70px),"
+    + sheetEllipseAt(o.H, 0.20, "rgba(11,32,84,", SHEET_T.chromeTintPk*o.op);
+}
+
 /* Distance from the top of the scrollable content down to the film title.
    Measured with getBoundingClientRect differences -- offsetTop reports against
    the nearest positioned ancestor, which is not the scroller. */
@@ -3298,46 +3404,10 @@ function sheetPaint(){
         + dockOp * ((pillBot + SHEET_T.chromeTail) - (SHEET_T.chromeSolid + SHEET_T.chromeFall));
   var plateau = SHEET_T.chromeSolid;
 
-  /* Per-layer radius. Blur composes as sqrt(sum of squares), so N stacked layers
-     of radius s read as s*sqrt(N) where they overlap -- solve back so
-     chromeBlur stays the effective peak. */
-  var step = chromeOp * SHEET_T.chromeBlur / Math.sqrt(SHEET_LAYERS);
-  /* Masks only move when the geometry does, so don't rebuild five gradient
-     strings on every scroll frame. */
-  var geomChanged = Math.abs(H - SH.lastH) > 0.25;
-  if (geomChanged){
-    SH.lastH = H;
-    detailChromeBlurEl.style.height = H.toFixed(1) + "px";
-    detailChromeTintEl.style.height = H.toFixed(1) + "px";
-  }
-  for (var li=0; li<detailBlurLayers.length; li++){
-    var L = detailBlurLayers[li];
-    var end = plateau + ((li+1)/SHEET_LAYERS) * (H - plateau);
-    /* Saturation belongs on exactly one layer. On all five it compounds into a
-       neon smear; the deepest layer is the one that spans everything. */
-    var lfx = "blur(" + step.toFixed(2) + "px)"
-            + (li === detailBlurLayers.length-1
-                 ? " saturate(" + (1 + SHEET_T.chromeSat*chromeOp).toFixed(2) + ")" : "");
-    L.style.backdropFilter = lfx;
-    L.style.webkitBackdropFilter = lfx;
-    if (geomChanged){
-      var lm = sheetEllipseAt(end, SHEET_T.chromeEdge, "rgba(0,0,0,", 1);
-      L.style.webkitMaskImage = lm;
-      L.style.maskImage = lm;
-    }
-  }
-
-  /* Two stacked tints. The film's accent sits on top and dies out early so a
-     breath of its colour survives at the very top of the glass; it is anchored
-     in px so growing the region cannot drag it downward. The navy base fades on
-     exactly the mask's curve. */
-  var A = SH.accent;
-  var t1=(0.20*chromeOp).toFixed(3), t2=(0.11*chromeOp).toFixed(3), t3=(0.03*chromeOp).toFixed(3);
-  var acc = "rgba("+A.r+","+A.g+","+A.b+",";
-  detailChromeTintEl.style.background =
-    "linear-gradient(180deg, "+acc+t1+") 0px, "+acc+t2+") 30px, "
-      + acc+t3+") 52px, "+acc+"0) 70px),"
-    + sheetEllipseAt(H, 0.20, "rgba(11,32,84,", SHEET_T.chromeTintPk*chromeOp);
+  paintChromeStack({
+    blur:detailChromeBlurEl, tint:detailChromeTintEl, layers:detailBlurLayers,
+    plateau:plateau, H:H, op:chromeOp, accent:SH.accent, state:SH
+  });
 
   detailChromeRowEl.style.opacity = chromeOp.toFixed(3);
   detailChromeEl.style.pointerEvents = "none";
@@ -3439,11 +3509,57 @@ function sheetDragStart(ev){
   document.addEventListener("pointercancel", up);
 }
 
+/* rAF stops while the page is hidden, so a spring started just before the user
+   switched away never advances. On return, settle whatever it left half-done
+   rather than waiting for a frame that already came and went. */
+document.addEventListener("visibilitychange", function(){
+  if(document.hidden) return;
+  if(!SH.open && SH.enter !== sheetHeight()){
+    if(SH.cancelSpring) SH.cancelSpring();
+    SH.enter = sheetHeight(); SH.drag = 0; SH.expand = 0;
+    detailEl.style.pointerEvents = "none";
+    sheetPaint();
+  }
+});
+
 if(detailScrollEl) detailScrollEl.addEventListener("scroll", sheetOnScroll, {passive:true});
 if(detailEl) detailEl.addEventListener("pointerdown", sheetDragStart);
 if(sheetScrimEl) sheetScrimEl.addEventListener("click", function(){
   if(SH.open && SH.expand < 0.04) hideDetail();
 });
+
+/* ── HOME SEARCH DOCK ──
+   The same stack and the same SHEET_T numbers as the sheet's condensed bar.
+   No proportional adjustment was needed: the search field's pinned bottom edge
+   lands at ~117px, within a pixel of where the sheet's tab pill sits, so the
+   region works out the same height and the two read as one material.
+   The dock is pinned from the first pixel of scroll (its resting offset already
+   equals its sticky top), so the blur is driven by scroll distance rather than
+   by a gap closing the way the sheet's dock does. */
+var activityScrollEl     = document.querySelector(".activity-scroll");
+var activityChromeBlurEl = document.getElementById("activity-chrome-blur");
+var activityChromeTintEl = document.getElementById("activity-chrome-tint");
+var activityBlurLayers   = document.querySelectorAll("#activity-chrome .blur-layer");
+var activitySearchInput  = document.getElementById("activityInput");
+var ACT = { lastH:-1, accent:{r:46,g:110,b:119} };
+
+function activityPaint(){
+  if(!activityScrollEl || !activityChromeBlurEl) return;
+  var op = sheetEase(sheetTrack(activityScrollEl.scrollTop, 0, SHEET_T.chromeRun));
+  /* Region bottom tracks the field's pinned bottom edge, exactly as the sheet's
+     tracks the tab pill's. Measured with rect differences, not offsetTop. */
+  var barBot = activitySearchInput
+    ? (activitySearchInput.getBoundingClientRect().bottom
+       - activityScrollEl.getBoundingClientRect().top)
+    : 117;
+  paintChromeStack({
+    blur:activityChromeBlurEl, tint:activityChromeTintEl, layers:activityBlurLayers,
+    plateau:SHEET_T.chromeSolid, H:barBot + SHEET_T.chromeTail,
+    op:op, accent:ACT.accent, state:ACT
+  });
+}
+if(activityScrollEl) activityScrollEl.addEventListener("scroll", activityPaint, {passive:true});
+activityPaint();
 
 function showDetail(){
   detailEl.style.pointerEvents="auto";
@@ -3467,9 +3583,18 @@ function hideDetail(){
      triggered this, currentBase will already have moved on by the time
      the animation finishes — so capture it now. */
   var baseAtDismiss = currentBase;
+  /* Tear down the interactive state SYNCHRONOUSLY, before the animation.
+     These used to live in the spring's onDone, which meant that if the spring
+     never ran a frame -- rAF is throttled whenever the page is backgrounded,
+     which on a phone is just "switched apps for a second" -- the sheet stayed
+     pointer-active and, far worse, #sheet-scrim stayed armed. The scrim spans
+     the whole app at z-index 69, so an armed scrim over a closed sheet swallows
+     every click on the screen: movie cards stop opening and the app looks dead.
+     Cleanup must never depend on an animation completing. */
   SH.open=false;
+  detailEl.style.pointerEvents="none";
+  sheetPaint();
   sheetSpring(SH.enter, sheetHeight(), 0, 280, 32, function(){
-    detailEl.style.pointerEvents="none";
     SH.expand=0; SH.drag=0;
     sheetPaint();
     /* Only refresh if we actually stayed on that base screen. Refresh QUIETLY:
