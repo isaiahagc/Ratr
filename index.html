@@ -560,6 +560,174 @@ html,body{width:100%;height:100%;overflow:hidden;background:#0B2054;font-family:
   position:relative;
 }
 
+/* ── CALCULATOR SHEET ──
+   Same shell as #screen-detail so the shared engine can drive it unchanged. */
+#screen-calc-sheet{
+  justify-content:flex-start;
+  overflow:hidden;
+  z-index:71;
+  padding-top:0;
+  transform:translateY(100%);
+  bottom:0;
+  pointer-events:none;
+  will-change:transform,border-radius;
+  border-radius:0;
+  background:#0B2054;
+}
+/* The home screen's two radial washes, pushed harder. Same positions and the
+   same 12-stop ramps as .default-glow -- every alpha is scaled ~1.3x on the
+   teal and ~1.42x on the orange, so the hues read stronger before they fall
+   away into the navy rather than being different colours. */
+.cs-glow{
+  position:absolute;left:0;right:0;top:0;height:620px;z-index:0;pointer-events:none;
+  background:
+    radial-gradient(115% 78% at 22% -4%,
+      rgba(46,110,119,0.60) 0%, rgba(46,110,119,0.54) 9%, rgba(46,110,119,0.47) 18%,
+      rgba(46,110,119,0.39) 28%, rgba(46,110,119,0.31) 38%, rgba(46,110,119,0.234) 48%,
+      rgba(46,110,119,0.169) 58%, rgba(46,110,119,0.114) 68%, rgba(46,110,119,0.069) 78%,
+      rgba(46,110,119,0.034) 87%, rgba(46,110,119,0.013) 94%, rgba(46,110,119,0) 100%),
+    radial-gradient(92% 70% at 90% 2%,
+      rgba(206,124,46,0.455) 0%, rgba(206,124,46,0.402) 10%, rgba(206,124,46,0.341) 20%,
+      rgba(206,124,46,0.281) 30%, rgba(206,124,46,0.223) 40%, rgba(206,124,46,0.170) 50%,
+      rgba(206,124,46,0.124) 60%, rgba(206,124,46,0.082) 70%, rgba(206,124,46,0.050) 80%,
+      rgba(206,124,46,0.024) 89%, rgba(206,124,46,0) 100%);
+}
+/* z-index deliberately absent, exactly as on .detail-scroll and
+   .activity-scroll: a stacking context here would trap the sticky search dock
+   below .cs-chrome and the bar would sink behind its own blur. */
+.cs-scroll{
+  width:100%;flex:1;min-height:0;
+  overflow-y:auto;
+  display:flex;flex-direction:column;align-items:center;
+  position:relative;
+  padding-top:0;
+}
+.cs-inner{width:100%;max-width:560px;padding:0 0 120px;color:white;position:relative;}
+/* Pins to the top of the sheet. The close button occupies y 14-52, so 58px left
+   only a 6px gap and the two read as crowded; 80px gives it room to breathe. */
+.cs-search-section{position:sticky;top:0;z-index:6;padding:80px 20px 12px;}
+.cs-chrome{position:absolute;top:0;left:0;right:0;z-index:5;pointer-events:none;}
+.cs-chrome-blur{position:absolute;top:0;left:0;right:0;height:150px;}
+.cs-chrome-tint{position:absolute;top:0;left:0;right:0;height:150px;}
+.cs-prompt{
+  padding:56px 34px 0;text-align:center;
+  font-size:14px;line-height:1.55;font-weight:500;
+  color:rgba(255,255,255,0.72);letter-spacing:-0.1px;
+}
+
+/* Lateral push between search and film. Both views occupy the same slot; the
+   outgoing one is taken out of flow so the sheet's height tracks whichever is
+   showing rather than the taller of the two. */
+.cs-view{
+  width:100%;
+  transition:transform 380ms cubic-bezier(0.22,1,0.36,1), opacity 240ms ease;
+}
+.cs-view:not(.on){
+  position:absolute;top:0;left:0;right:0;
+  opacity:0;pointer-events:none;
+}
+/* Taken out of the layout once the push has finished. Absolute positioning hides
+   a view but still counts it toward the scroller's scrollable height, so the
+   film view's ~2000px left the short score view scrollable into a screenful of
+   nothing -- and pushed its centred card off centre. Applied on a timer rather
+   than immediately because the outgoing view has to stay rendered while it
+   slides out. */
+.cs-view.parked{display:none;}
+.cs-view-next:not(.on){transform:translateX(28px);}
+/* transform:none, NOT translateX(0) -- a transform of any value creates a
+   stacking context, and this element sits between the sticky .cs-dock (z 6) and
+   .cs-chrome (z 5). With translateX(0) here the dock's z-index was trapped
+   inside this box and the pill rendered UNDERNEATH its own blur. `none` still
+   interpolates from translateX(28px), so the lateral push animates unchanged;
+   the context only exists while the transition is actually running, when the
+   chrome is not engaged anyway. Same trap as the scrollers -- do not "tidy" this
+   back to translateX(0). */
+.cs-view.on{position:relative;transform:none;opacity:1;}
+#cs-content{position:relative;width:100%;}
+
+/* Back sits beside the close X as a second glass circle, same material and same
+   38px round, so the two read as one pair of controls rather than a button and a
+   link. 62px clears the X (16 + 38 = 54) with an 8px gap. */
+#cs-back-btn{left:62px;}
+/* Back belongs to every view except the search one, where there is nothing to
+   go back to. */
+#screen-calc-sheet:not(.on-film):not(.on-score) #cs-back-btn{display:none;}
+
+/* The still runs to the very top of the sheet, exactly as the detail sheet's
+   does -- the search field that used to be pinned above it is taken out of the
+   layout entirely once a film is picked. */
+.cs-marquee{margin-top:0;}
+#screen-calc-sheet.on-film .cs-search-section,
+#screen-calc-sheet.on-score .cs-search-section{display:none;}
+
+/* Score view: centred in the sheet the way #screen-score is centred in the
+   window, and keeping the calculator's own teal/orange wash rather than the
+   film's accent -- the accent belongs to the film view.
+   The height is the sheet's VISIBLE area: the sheet is viewport-tall but sits
+   translated down by SHEET_T.inset (56) while seated, so 100vh - 56 fills it
+   exactly and nothing scrolls. .cs-inner's own bottom runway is dropped here for
+   the same reason -- left in, it would push the card off centre by half of it. */
+#screen-calc-sheet.on-score .cs-inner{padding-bottom:0;}
+/* Slides in on transform ALONE -- no opacity fade. The score card is
+   backdrop-filtered, and a fractional-opacity ancestor isolates its subtree so
+   the filter has nothing to sample: fading this view in would render the glass
+   as flat paint for the length of the fade and then pop into focus. A lateral
+   push does not want a cross-fade anyway. */
+#cs-score-view{transition:transform 380ms cubic-bezier(0.22,1,0.36,1);}
+/* Id-scoped deliberately: .score-inner is declared further down the file and
+   would otherwise win on source order and keep its 100px bottom padding, which
+   pushes the centred block up by half of it. */
+#screen-calc-sheet .cs-score-inner{
+  min-height:calc(100vh - 56px);
+  justify-content:center;margin:0 auto;
+  padding:24px;
+}
+/* Same bottom runway as .detail-inner: the film view hosts the same rate form,
+   so it gets the same room past the end of it. */
+#screen-calc-sheet.on-film .cs-inner{padding-bottom:156px;}
+
+/* Identical to .detail-tabs-dock -- same sticky offset (which is also the
+   condensed bar's height), same z above .cs-chrome, same padding, so the pill
+   lands at exactly the width the info bar above it occupies and rides on top of
+   its own blur rather than behind it. */
+.cs-dock{position:sticky;top:67px;z-index:6;padding:20px 20px 12px;}
+
+/* Two controls on the left instead of one, so the centred title needs a wider
+   keep-out than the detail sheet's 150px or it runs under the back button. */
+#screen-calc-sheet .detail-chrome-mid{max-width:calc(100% - 208px);}
+
+/* Background swap between the two views. The search view keeps the calculator's
+   own teal/orange wash; the film view takes the film's accent, the same pair of
+   layers the detail sheet uses, so a film looks the same in both sheets. These
+   cross-fade on the lateral push's own duration rather than being written per
+   frame -- nothing here needs to track the open spring, since .cs-glow never
+   did either. */
+#screen-calc-sheet .cs-glow,
+#screen-calc-sheet #cs-persist,
+#screen-calc-sheet #cs-ambient{transition:opacity 380ms ease;}
+/* .detail-ambient is a flat 820px tall, and an absolutely positioned child still
+   counts toward a scroller's scrollable height even at opacity 0 -- on the short
+   score view that alone made the sheet scrollable by 8px. Capping it to the
+   scroller costs nothing: the wash has faded to transparent long before its own
+   bottom edge. */
+#screen-calc-sheet #cs-ambient{max-height:100%;}
+#screen-calc-sheet.on-film .cs-glow{opacity:0;}
+#screen-calc-sheet.on-film #cs-persist,
+#screen-calc-sheet.on-film #cs-ambient{opacity:1;}
+.cs-pill{
+  display:flex;align-items:center;justify-content:center;
+  padding:13px 14px;border-radius:14px;
+  background:linear-gradient(180deg, rgba(255,255,255,0.20), rgba(255,255,255,0.11));
+  border:1px solid rgba(255,255,255,0.30);
+  box-shadow:0 6px 18px rgba(0,0,0,0.30),
+             0 1px 3px rgba(0,0,0,0.22),
+             inset 0 1px 0.5px rgba(255,255,255,0.55),
+             inset 0 -1px 1px rgba(0,0,0,0.16);
+  color:#fff;font-size:11px;font-weight:700;
+  letter-spacing:0.7px;text-transform:uppercase;text-align:center;
+  text-shadow:0 1px 2px rgba(0,0,0,0.4);
+}
+
 /* ── PULL-OVER SHEET CHROME ──
    Ported from sheet-prototype.html. Every number lives in SHEET_T in the
    script; nothing here is animated by CSS. */
@@ -1364,14 +1532,38 @@ input.slider-input::-moz-range-track{background:transparent;height:0;}
   font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;letter-spacing:1.5px;
   text-transform:uppercase;font-weight:300;
 }
+/* Milky liquid glass rather than clear: a heavy blur for the frost, a
+   deliberately high white wash over it so the card reads as opaque milk rather
+   than a window, and the same specular top rim / dark under-rim as the pill and
+   the close button so it belongs to the same material family.
+   The white wash is what makes it "milky" -- at the 0.10-0.15 the other glass
+   surfaces use, the sheet's gradient reads straight through and the big score
+   number loses its contrast. */
 .score-card{
-  background:white;border-radius:24px;padding:36px 40px 32px;width:100%;
+  border-radius:24px;padding:36px 40px 32px;width:100%;
   display:flex;flex-direction:column;align-items:center;gap:8px;
   position:relative;overflow:visible;
+  background:linear-gradient(180deg,
+    rgba(255,255,255,0.34) 0%,
+    rgba(255,255,255,0.26) 55%,
+    rgba(255,255,255,0.21) 100%);
+  backdrop-filter:blur(34px) saturate(1.45) brightness(1.06);
+  -webkit-backdrop-filter:blur(34px) saturate(1.45) brightness(1.06);
+  border:1px solid rgba(255,255,255,0.34);
+  /* Held in a variable because the score's glow animation overwrites box-shadow
+     wholesale. On the old white card that cost nothing; on glass it would strip
+     the specular rim that makes it read as a material, so the pulse composites
+     the glow ON TOP of this rather than replacing it. */
+  --card-shadow:
+    0 14px 40px rgba(0,0,0,0.30),
+    0 2px 6px rgba(0,0,0,0.20),
+    inset 0 1px 0.5px rgba(255,255,255,0.60),
+    inset 0 -1px 1px rgba(0,0,0,0.14);
+  box-shadow:var(--card-shadow);
 }
 @keyframes cardGlowPulse{
-  0%,100%{box-shadow:var(--glow-min);}
-  50%{box-shadow:var(--glow-max);}
+  0%,100%{box-shadow:var(--glow-min), var(--card-shadow);}
+  50%{box-shadow:var(--glow-max), var(--card-shadow);}
 }
 .score-number{
   font-size:80px;font-weight:700;font-style:italic;line-height:1;
@@ -1386,13 +1578,15 @@ input.slider-input::-moz-range-track{background:transparent;height:0;}
 .result-star{position:relative;font-size:20px;line-height:1;cursor:default;color:transparent;}
 .result-star-fill{position:absolute;inset:0;width:0%;overflow:hidden;white-space:nowrap;}
 .result-star-fill::before{content:"★";}
+/* Dividers were near-black hairlines tuned for a white card; on glass they read
+   as dirt. Light rules at the same weight instead. */
 .score-scale{
   display:flex;justify-content:center;
-  margin-top:16px;border-top:1px solid rgba(0,0,0,0.07);padding-top:14px;width:100%;
+  margin-top:16px;border-top:1px solid rgba(255,255,255,0.22);padding-top:14px;width:100%;
 }
 .scale-item{
-  padding:4px 8px;border-left:1px solid rgba(0,0,0,0.08);
-  text-align:center;font-size:9px;color:#bbb;transition:color 0.3s;
+  padding:4px 8px;border-left:1px solid rgba(255,255,255,0.20);
+  text-align:center;font-size:9px;color:rgba(255,255,255,0.42);transition:color 0.3s;
 }
 .scale-item:first-child{border-left:none;}
 .scale-item .sv{font-weight:700;font-size:11px;}
@@ -1791,6 +1985,129 @@ input.slider-input::-moz-range-track{background:transparent;height:0;}
      not scaled along with what it is darkening. -->
 <div id="sheet-scrim" class="sheet-scrim"></div>
 
+<!-- CALCULATOR (pull-over sheet) -->
+<!-- Sibling of #backdrop like the detail sheet, and driven by the same engine:
+     same SHEET_T values, same composition, spring, drag-dismiss and blur stack.
+     What differs is only its chrome -- a search dock instead of a condensed
+     film bar. -->
+<div class="screen" id="screen-calc-sheet">
+  <div class="cs-glow"></div>
+  <!-- The film's accent wash, the same two layers the detail sheet carries: one
+       fixed to the sheet so the colour never fully scrolls away, one that scrolls
+       with the content. Both sit dark until a film is picked. -->
+  <div class="detail-persist" id="cs-persist"><div class="grad-noise"></div></div>
+
+  <!-- Condensed bar. Same rule as .detail-chrome: never give this a fractional
+       opacity or the backdrop-filters inside lose everything to sample. The row
+       is what fades; the blur RADIUS is what animates. -->
+  <div class="cs-chrome" id="cs-chrome">
+    <div class="cs-chrome-blur" id="cs-chrome-blur">
+      <div class="blur-layer"></div>
+      <div class="blur-layer"></div>
+      <div class="blur-layer"></div>
+      <div class="blur-layer"></div>
+      <div class="blur-layer"></div>
+    </div>
+    <div class="cs-chrome-tint" id="cs-chrome-tint"></div>
+    <!-- Detail sheet's own classes, so the bar matches by construction. The
+         score slot stays empty here: nothing has been rated yet, which is
+         exactly what the detail sheet shows for an unrated film. -->
+    <div class="detail-chrome-row" id="cs-chrome-row">
+      <div class="detail-chrome-mid">
+        <div class="detail-chrome-art" id="cs-chrome-art"></div>
+        <div class="detail-chrome-title" id="cs-chrome-title"></div>
+      </div>
+      <div class="detail-chrome-score" id="cs-chrome-score"></div>
+    </div>
+  </div>
+
+  <div class="detail-close" id="cs-close" title="close">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="white" stroke-width="2.3" stroke-linecap="round"/></svg>
+  </div>
+  <!-- Back to the search view. Same glass circle as the close X, sitting beside
+       it, rather than a text link inside the scrolling content. -->
+  <div class="detail-close" id="cs-back-btn" title="back to search">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M15 5l-7 7 7 7" stroke="white" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+  </div>
+
+  <div class="detail-handle-zone" id="cs-handle-zone"><div class="detail-handle"></div></div>
+
+  <div class="cs-scroll" id="cs-scroll">
+    <div class="detail-ambient" id="cs-ambient"></div>
+    <div class="cs-inner">
+      <div class="cs-search-section">
+        <div class="inline-search-wrap" id="csSearchWrap">
+          <svg class="inline-search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="2"/>
+            <path d="M16.5 16.5L21 21" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+          <input id="calcInput" class="inline-search-input" type="text" autocomplete="off" placeholder="search any movie"/>
+          <button class="inline-search-clear" id="csSearchClear" type="button" aria-label="Clear search">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="3.4" stroke-linecap="round"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+      <!-- Two views that slide past each other. Not a pull-over: picking a film
+           is a lateral push within the same sheet. -->
+      <div id="cs-content">
+        <div class="cs-view on" id="cs-search-view">
+          <div class="cs-prompt" id="cs-prompt">Search for the movie you watched to begin rating!</div>
+          <div id="cs-results"></div>
+        </div>
+        <div class="cs-view cs-view-next" id="cs-film-view" aria-hidden="true">
+          <!-- Same classes as the detail sheet's own marquee/header/info, so the
+               layout matches by construction rather than by imitation: the 16:9
+               still, the poster pulled up over it, the facts row. -->
+          <div class="detail-marquee cs-marquee">
+            <div class="detail-backdrop" id="cs-backdrop"></div>
+          </div>
+          <div class="detail-header" id="cs-film-head"></div>
+          <div class="detail-info" id="cs-film-info"></div>
+          <!-- Single pill instead of the detail sheet's three tabs. Same dock
+               padding, so it lands at the same width as the info bar. -->
+          <div class="cs-dock">
+            <div class="cs-pill">Calculate your Ratr score</div>
+            <div class="detail-progress rate-progress on" id="cs-progress">
+              <div class="detail-progress-fill" id="cs-progress-fill"></div>
+            </div>
+          </div>
+          <div class="detail-panel active" id="cs-rate-panel"></div>
+        </div>
+        <!-- Third lateral view. Submitting no longer drops the sheet and springs
+             the separate #screen-score up behind it: the result arrives as
+             another push inside the same pull-over. Classes only, no ids on the
+             card's internals -- #screen-score still carries those, and a second
+             set would hijack every getElementById. -->
+        <div class="cs-view cs-view-next" id="cs-score-view" aria-hidden="true">
+          <div class="score-inner cs-score-inner">
+            <div class="score-film-name"></div>
+            <div class="score-card">
+              <div class="score-particle-layer"></div>
+              <div class="score-number">&mdash;</div>
+              <div class="score-label-txt"></div>
+              <div class="result-stars-row"></div>
+              <div class="score-scale">
+                <div class="scale-item" data-v="0"><div class="sv">0</div><div>poor</div></div>
+                <div class="scale-item" data-v="1"><div class="sv">1</div><div>bad</div></div>
+                <div class="scale-item" data-v="2"><div class="sv">2</div><div>meh</div></div>
+                <div class="scale-item" data-v="3"><div class="sv">3</div><div>ok</div></div>
+                <div class="scale-item" data-v="4"><div class="sv">4</div><div>great</div></div>
+                <div class="scale-item" data-v="5"><div class="sv">5</div><div>&#10022;</div></div>
+              </div>
+            </div>
+            <div class="score-actions">
+              <button class="btn btn-ghost" id="cs-score-edit" type="button">Edit Ratings</button>
+              <button class="btn btn-solid" id="cs-score-again" type="button">Rate Another</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- DETAIL SCREEN (pull-over sheet) -->
 <!-- Sibling of #backdrop, not of the base screens, so it can be pushed over the
      footer and have the backdrop recede behind it. -->
@@ -1848,7 +2165,7 @@ input.slider-input::-moz-range-track{background:transparent;height:0;}
           <div class="detail-tab" data-tab="again">Rate Again</div>
           <div class="detail-tab" data-tab="avg">Avg Ratr Score</div>
         </div>
-        <div class="detail-progress" id="detail-progress">
+        <div class="detail-progress rate-progress" id="detail-progress">
           <div class="detail-progress-fill" id="detail-progress-fill"></div>
         </div>
       </div>
@@ -2469,8 +2786,10 @@ function pickBackdrop(tmdbId, fallbackPath, posterPath){
 
 /* 16:9 still behind the poster. Fades in once loaded so a slow image never
    pops; falls back to the plain wash when a film has no backdrop. */
-function setDetailBackdrop(backdropPath){
-  var el=document.getElementById("detail-backdrop");
+/* targetEl is optional -- the calculator sheet passes its own still element so
+   both sheets share this loader rather than each having a copy. */
+function setDetailBackdrop(backdropPath, targetEl){
+  var el=targetEl || document.getElementById("detail-backdrop");
   if(!el) return;
   el.classList.remove("loaded");
   if(!backdropPath){ el.style.backgroundImage=""; return; }
@@ -2706,6 +3025,47 @@ function renderMetricList(dataObj){
   return html;
 }
 
+/* The film's facts block: tagline, synopsis, then the chip row. Shared by both
+   sheets, because this is not only about showing the same text -- the block's
+   height is what sets how far the dock has to travel before it pins, so a
+   shorter version here would give the calculator different scroll behaviour
+   from the browse sheet for the same film. */
+function filmInfoHTML(d){
+  if(!d) return "";
+  var facts=[];
+  var rt=formatRuntime(d.runtime);
+  if(rt) facts.push("<div class='detail-fact'><strong>"+rt+"</strong></div>");
+  if(d.genres && d.genres.length){
+    d.genres.slice(0,3).forEach(function(g){
+      facts.push("<div class='detail-fact'>"+g.name+"</div>");
+    });
+  }
+  if(d.vote_average){
+    facts.push("<div class='detail-fact'>tmdb <strong>"+Number(d.vote_average).toFixed(1)+"</strong></div>");
+  }
+  if(d.original_language){
+    facts.push("<div class='detail-fact'>"+d.original_language.toUpperCase()+"</div>");
+  }
+  var bud=formatMoney(d.budget);
+  if(bud) facts.push("<div class='detail-fact'>budget <strong>"+bud+"</strong></div>");
+  var rev=formatMoney(d.revenue);
+  if(rev) facts.push("<div class='detail-fact'>box office <strong>"+rev+"</strong></div>");
+  if(d.status && d.status!=="Released"){
+    facts.push("<div class='detail-fact'>"+d.status+"</div>");
+  }
+  var html="";
+  if(d.tagline){
+    html+="<div style='font-size:11px;font-style:italic;color:rgba(255,255,255,0.5);margin-bottom:10px;'>“"+d.tagline+"”</div>";
+  }
+  if(d.overview){
+    html+="<div class='detail-overview'>"+d.overview+"</div>";
+  }
+  if(facts.length){
+    html+="<div class='detail-facts'>"+facts.join("")+"</div>";
+  }
+  return html;
+}
+
 function openDetail(group){
   detailRow=group;
   setDetailAccent(null);
@@ -2778,38 +3138,7 @@ function openDetail(group){
         var rd=new Date(d.release_date+"T00:00:00");
         relEl.textContent="released "+rd.toLocaleDateString(undefined,{year:"numeric",month:"short",day:"numeric"});
       }
-      var facts=[];
-      var rt=formatRuntime(d.runtime);
-      if(rt) facts.push("<div class='detail-fact'><strong>"+rt+"</strong></div>");
-      if(d.genres && d.genres.length){
-        d.genres.slice(0,3).forEach(function(g){
-          facts.push("<div class='detail-fact'>"+g.name+"</div>");
-        });
-      }
-      if(d.vote_average){
-        facts.push("<div class='detail-fact'>tmdb <strong>"+Number(d.vote_average).toFixed(1)+"</strong></div>");
-      }
-      if(d.original_language){
-        facts.push("<div class='detail-fact'>"+d.original_language.toUpperCase()+"</div>");
-      }
-      var bud=formatMoney(d.budget);
-      if(bud) facts.push("<div class='detail-fact'>budget <strong>"+bud+"</strong></div>");
-      var rev=formatMoney(d.revenue);
-      if(rev) facts.push("<div class='detail-fact'>box office <strong>"+rev+"</strong></div>");
-      if(d.status && d.status!=="Released"){
-        facts.push("<div class='detail-fact'>"+d.status+"</div>");
-      }
-      var html="";
-      if(d.tagline){
-        html+="<div style='font-size:11px;font-style:italic;color:rgba(255,255,255,0.5);margin-bottom:10px;'>“"+d.tagline+"”</div>";
-      }
-      if(d.overview){
-        html+="<div class='detail-overview'>"+d.overview+"</div>";
-      }
-      if(facts.length){
-        html+="<div class='detail-facts'>"+facts.join("")+"</div>";
-      }
-      infoEl.innerHTML=html;
+      infoEl.innerHTML=filmInfoHTML(d);
     });
   } else {
     infoEl.innerHTML="";
@@ -2984,8 +3313,14 @@ function renderEntriesList(group){
   });
 }
 
-function loadAverage(tmdbIdVal, title){
-  var avg=document.getElementById("panel-avg");
+/* opts lets the calculator sheet reuse this for its header's inline avg without
+   also rendering the community breakdown panel, which only the detail sheet has:
+   pass inlineId for a different header slot and panelId:null to skip the panel. */
+function loadAverage(tmdbIdVal, title, opts){
+  opts = opts || {};
+  var inlineId = opts.inlineId || "detail-avg-inline";
+  var avg = (opts.panelId===null) ? null
+          : document.getElementById(opts.panelId || "panel-avg");
   var filter = tmdbIdVal
     ? "tmdb_id=eq."+tmdbIdVal
     : "movie_title=eq."+encodeURIComponent(title||"");
@@ -2999,9 +3334,9 @@ function loadAverage(tmdbIdVal, title){
     }
   }).then(function(r){return r.json();})
   .then(function(rows){
-    var inlineEl=document.getElementById("detail-avg-inline");
+    var inlineEl=document.getElementById(inlineId);
     if(!rows||rows.length===0){
-      avg.innerHTML="<div class='ratings-empty'>no community ratings yet</div>";
+      if(avg) avg.innerHTML="<div class='ratings-empty'>no community ratings yet</div>";
       if(inlineEl){
         inlineEl.innerHTML="<span class='detail-avg-label'>avg</span>"+
           "<span class='detail-avg-value' style='color:rgba(255,255,255,0.4)'>—</span>";
@@ -3033,7 +3368,7 @@ function loadAverage(tmdbIdVal, title){
         "<span class='detail-avg-reviews'>("+rows.length+" review"+(rows.length===1?"":"s")+")</span>";
     }
 
-    avg.innerHTML=
+    if(avg) avg.innerHTML=
       "<div class='detail-final'>"+
         "<div class='detail-final-num' style='color:"+color+"'>"+avgFinal.toFixed(2)+"</div>"+
         "<div class='detail-final-label' style='color:"+color+"'>"+scoreLabel(avgFinal)+"</div>"+
@@ -3043,7 +3378,7 @@ function loadAverage(tmdbIdVal, title){
       renderMetricList(avgObj);
   }).catch(function(e){
     console.error("[ratr] avg load failed:",e);
-    avg.innerHTML="<div class='ratings-empty'>couldn't load community average</div>";
+    if(avg) avg.innerHTML="<div class='ratings-empty'>couldn't load community average</div>";
   });
 }
 
@@ -3088,13 +3423,18 @@ function raProgressCount(){
 function raProgressTotal(){ return RA_KEYS.length + 1 + RA_SLIDER_KEYS.length; }
 
 function updateRateProgress(){
-  var el=document.getElementById("detail-progress");
-  var fill=document.getElementById("detail-progress-fill");
-  if(!el||!fill) return;
+  /* Drives every .rate-progress in the document: the detail sheet's dock and
+     the calculator sheet's. They can't both be on screen, so updating both is
+     cheaper and safer than tracking which one is live. */
+  var bars=document.querySelectorAll(".rate-progress");
+  if(!bars.length) return;
   var total=raProgressTotal(), n=raProgressCount();
-  fill.style.width=(n/total*100).toFixed(1)+"%";
   var complete = n>=total;
-  el.classList.toggle("complete", complete);
+  for(var i=0;i<bars.length;i++){
+    var fill=bars[i].querySelector(".detail-progress-fill");
+    if(fill) fill.style.width=(n/total*100).toFixed(1)+"%";
+    bars[i].classList.toggle("complete", complete);
+  }
   /* A firmer haptic the moment it fills, and only on the transition -- the
      per-answer tick is already fired by the input handlers themselves. */
   if(complete && !raProgressWasComplete) haptic([12,40,18]);
@@ -3103,6 +3443,7 @@ function updateRateProgress(){
      geometry is only recomputed inside sheetPaint -- which otherwise runs on
      scroll. Without this the region would not grow until the next scroll. */
   if(typeof SH!=="undefined" && SH && SH.open) sheetPaint();
+  if(typeof CS!=="undefined" && CS && CS.open) calcSheetPaint();
 }
 
 function raRow(name,sub,key,quip){
@@ -3250,14 +3591,25 @@ function recomputeGroupAverages(g){
   g.avgFinal = finalCount>0 ? finalSum/finalCount : 0;
 }
 
-function buildRateAgainPanel(row){
+/* opts (optional): {target, onSubmit}. Defaults to the detail sheet's
+   #panel-again and its inline result. The calculator sheet passes its own panel
+   and takes over what happens on submit. */
+function buildRateAgainPanel(row, opts){
+  opts = opts || {};
   RA_KEYS.forEach(function(k){ raRatings[k]=0; raLastTap[k]=null; });
   raMFlag=null;
   raSliders={P:50,K:50,F:50};
   raSlidersTouched={P:false,K:false,F:false};
   raProgressWasComplete=false;
 
-  var p=document.getElementById("panel-again");
+  var p=opts.target || document.getElementById("panel-again");
+  /* Only one rate form may exist at a time. Its internals are addressed by id
+     (ra-stars-S, ra-submit, ra-slider-P ...), so a second copy left in the DOM
+     would win every getElementById and silently steer taps to the wrong form. */
+  ["panel-again","cs-rate-panel"].forEach(function(id){
+    var other=document.getElementById(id);
+    if(other && other!==p) other.innerHTML="";
+  });
   p.innerHTML=
     "<div class='section'><div class='section-header'>The Craft</div>"+
       raRow("Screenplay","Writing, Structure, Dialogue","S","Did the words on the page make you feel anything?")+
@@ -3315,11 +3667,12 @@ function buildRateAgainPanel(row){
     });
   });
 
-  document.getElementById("ra-submit").addEventListener("click",function(){
+  p.querySelector("#ra-submit").addEventListener("click",function(){
     haptic();
     var score=raCalcScore();
     var color=scoreColor(score);
-    document.getElementById("ra-result").innerHTML=
+    if(opts.onSubmit){ opts.onSubmit(score, color, row); return; }
+    p.querySelector("#ra-result").innerHTML=
       "<div class='detail-final' style='margin:20px 0;'>"+
         "<div class='detail-final-num' style='color:"+color+"'>"+score.toFixed(2)+"</div>"+
         "<div class='detail-final-label' style='color:"+color+"'>"+scoreLabel(score)+"</div>"+
@@ -3507,6 +3860,12 @@ function attachHeaderScroll(el){
    Base-layer visibility (intro/activity/ratings/browse/calc/auth)
    is handled entirely by CSS defaults + showBase(). */
 detailEl.style.transform = "translateY(100%)";
+/* Looked up directly rather than via calcSheetEl: that var is declared further
+   down in the sheet-engine section, so it is still undefined at this point. */
+(function(){
+  var cs=document.getElementById("screen-calc-sheet");
+  if(cs){ cs.style.transform="translateY(100%)"; cs.style.pointerEvents="none"; }
+})();
 detailEl.style.pointerEvents = "none";
 scoreEl.style.transform  = "translateY(100%)";
 scoreEl.style.pointerEvents = "none";
@@ -3818,22 +4177,35 @@ function measureSheetChrome(){
   SH.chromeEnd   = SH.chromeStart + SHEET_T.chromeRun;
 }
 
-function sheetPaint(){
-  var insetNow = SHEET_T.inset * (1 - SH.expand);
+/* ── SHARED SHEET MECHANICS ──
+   The parts every pull-over needs, parameterised by its own state object and
+   element: the three-offset composition, the corner straighten, the scrim and
+   the backdrop push-back. Chrome painting stays with each sheet, because that
+   is the only part that genuinely differs between them. */
+function sheetComposite(S, el){
+  var insetNow = SHEET_T.inset * (1 - S.expand);
   /* Only write when the value actually changes. This is the sheet's own
      transform, and the scroller is a descendant of it -- touching it on every
      scroll frame gives iOS repeated chances to reset the inner scroll offset,
      for no benefit, since once expand pins at 1 the value is constant anyway. */
-  var tf = "translateY(" + (SH.enter + SH.drag + insetNow) + "px)";
-  if(tf !== SH.lastTransform){ SH.lastTransform = tf; detailEl.style.transform = tf; }
-  var r = SHEET_T.radius * (1 - SH.expand);
+  var tf = "translateY(" + (S.enter + S.drag + insetNow) + "px)";
+  if(tf !== S.lastTransform){ S.lastTransform = tf; el.style.transform = tf; }
+  var r = SHEET_T.radius * (1 - S.expand);
   var rad = r + "px " + r + "px 0 0";
-  if(rad !== SH.lastRadius){ SH.lastRadius = rad; detailEl.style.borderRadius = rad; }
+  if(rad !== S.lastRadius){ S.lastRadius = rad; el.style.borderRadius = rad; }
 
-  /* how "present" the sheet is overall: 0 when fully off-screen, 1 when seated */
-  var presence = 1 - sheetClamp((SH.enter + SH.drag) / sheetHeight(), 0, 1);
+  /* how "present" the sheet is overall: 0 when fully off-screen, 1 when seated.
+     The scrim and backdrop are shared by every sheet, so whichever one is
+     painting owns them -- fine while only one can be open at a time. */
+  var h = el.getBoundingClientRect().height || 1;
+  var presence = 1 - sheetClamp((S.enter + S.drag) / h, 0, 1);
   sheetScrimEl.style.opacity = (SHEET_T.dim * presence).toFixed(3);
   backdropEl.style.transform = "scale(" + (1 - SHEET_T.pushBack * presence).toFixed(4) + ")";
+  return presence;
+}
+
+function sheetPaint(){
+  var presence = sheetComposite(SH, detailEl);
   /* These two carried the sheet's accent wash and were previously driven by
      runSpring's glowEls on the same 0..1 curve. */
   if(detailPersistEl) detailPersistEl.style.opacity = presence.toFixed(3);
@@ -3895,35 +4267,43 @@ function sheetOnScroll(){
 
 /* px spring, same shape as runSpring but writing through sheetPaint so it can
    never race the other two offsets. */
-function sheetSpring(from, to, vel, stiffness, damping, onDone){
-  if(SH.cancelSpring) SH.cancelSpring();
-  var pos=from, v=vel||0, last=null, raf=null, done=false;
+/* Generic over the sheet: takes the state object it should drive and the paint
+   function to call each frame, so every pull-over shares one spring. */
+function sheetSpring(S, paint, from, to, vel, stiffness, damping, onDone){
+  if(S.cancelSpring) S.cancelSpring();
+  var pos=from, v=vel||0, last=null, raf=null;
   function step(now){
     if(last===null) last=now;
     var dt=Math.min((now-last)/1000, 0.064); last=now;
     var x=pos-to;
     v += ((-stiffness*x - damping*v)/1) * dt;
     pos += v*dt;
-    SH.enter = pos;
-    sheetPaint();
+    S.enter = pos;
+    paint();
     if(Math.abs(pos-to)<0.5 && Math.abs(v)<6){
-      SH.enter=to; sheetPaint(); done=true;
-      SH.cancelSpring=null;
+      S.enter=to; paint();
+      S.cancelSpring=null;
       if(onDone) onDone();
       return;
     }
     raf=requestAnimationFrame(step);
   }
   raf=requestAnimationFrame(step);
-  SH.cancelSpring=function(){ if(raf) cancelAnimationFrame(raf); SH.cancelSpring=null; };
+  S.cancelSpring=function(){ if(raf) cancelAnimationFrame(raf); S.cancelSpring=null; };
 }
 
 /* Poster + title + score for the condensed bar. Score slot stays empty for a
    film the user has not rated. */
 function fillDetailChrome(group){
-  var art=document.getElementById("detail-chrome-art");
-  var ttl=document.getElementById("detail-chrome-title");
-  var scr=document.getElementById("detail-chrome-score");
+  fillChromeRow(group, "detail-chrome-art", "detail-chrome-title", "detail-chrome-score");
+}
+/* Shared by both sheets' condensed bars -- the calculator's is the same row with
+   the same classes, so it fills the same way rather than by a second copy of
+   this. An unrated film leaves the score slot empty on either sheet. */
+function fillChromeRow(group, artId, ttlId, scrId){
+  var art=document.getElementById(artId);
+  var ttl=document.getElementById(ttlId);
+  var scr=document.getElementById(scrId);
   if(!art||!ttl||!scr) return;
   art.style.backgroundImage = group && group._poster
     ? "url(https://image.tmdb.org/t/p/w92"+group._poster+")" : "none";
@@ -3943,41 +4323,46 @@ function fillDetailChrome(group){
    sheet dismissal. Otherwise a drag may begin from the handle, or from
    anywhere once the list is already scrolled to the top. */
 var SHEET_CONTROLS = "input,button,select,textarea,a,.detail-tab,.sl-track,.sl-thumb,.star,.stars-row,[role='slider']";
-function sheetDragStart(ev){
-  if(!SH.open || SH.dragging) return;
-  if(ev.target.closest && ev.target.closest(SHEET_CONTROLS)) return;
-  var fromHandle = detailHandleEl && detailHandleEl.contains(ev.target);
-  if(!fromHandle && detailScrollEl.scrollTop > 0) return;
-  if(SH.cancelSpring) SH.cancelSpring();
-  SH.dragging=true;
-  var startY=ev.clientY, lastY=startY, lastT=Date.now(), vel=0;
-  function move(e){
-    var dy=e.clientY-startY;
-    var t=Date.now(), dt=Math.max(1,t-lastT);
-    vel=(e.clientY-lastY)/dt; lastY=e.clientY; lastT=t;
-    SH.drag = Math.max(0, dy);
-    sheetPaint();
-  }
-  function up(){
-    document.removeEventListener("pointermove", move);
-    document.removeEventListener("pointerup", up);
-    document.removeEventListener("pointercancel", up);
-    SH.dragging=false;
-    var h=sheetHeight();
-    var committed = vel > SHEET_T.flickVel || SH.drag > SHEET_T.distPct*h;
-    if(committed){
-      SH.enter += SH.drag; SH.drag=0;
-      hideDetail();
-    } else {
-      var from=SH.drag; SH.drag=0;
-      /* fold the released drag into `enter` and let the spring carry it home */
-      SH.enter += from;
-      sheetSpring(SH.enter, 0, vel*1000, 300, 34);
+/* Generic over the sheet. cfg: {state, el, scroll, handle, paint, close} */
+function attachSheetDrag(cfg){
+  if(!cfg.el) return;
+  var S=cfg.state;
+  cfg.el.addEventListener("pointerdown", function(ev){
+    if(!S.open || S.dragging) return;
+    if(ev.target.closest && ev.target.closest(SHEET_CONTROLS)) return;
+    var fromHandle = cfg.handle && cfg.handle.contains(ev.target);
+    if(!fromHandle && cfg.scroll && cfg.scroll.scrollTop > 0) return;
+    if(S.cancelSpring) S.cancelSpring();
+    S.dragging=true;
+    var startY=ev.clientY, lastY=startY, lastT=Date.now(), vel=0;
+    function move(e){
+      var dy=e.clientY-startY;
+      var t=Date.now(), dt=Math.max(1,t-lastT);
+      vel=(e.clientY-lastY)/dt; lastY=e.clientY; lastT=t;
+      S.drag = Math.max(0, dy);
+      cfg.paint();
     }
-  }
-  document.addEventListener("pointermove", move);
-  document.addEventListener("pointerup", up);
-  document.addEventListener("pointercancel", up);
+    function up(){
+      document.removeEventListener("pointermove", move);
+      document.removeEventListener("pointerup", up);
+      document.removeEventListener("pointercancel", up);
+      S.dragging=false;
+      var h=cfg.el.getBoundingClientRect().height||1;
+      var committed = vel > SHEET_T.flickVel || S.drag > SHEET_T.distPct*h;
+      if(committed){
+        S.enter += S.drag; S.drag=0;
+        cfg.close();
+      } else {
+        var from=S.drag; S.drag=0;
+        /* fold the released drag into `enter` and let the spring carry it home */
+        S.enter += from;
+        sheetSpring(S, cfg.paint, S.enter, 0, vel*1000, 300, 34);
+      }
+    }
+    document.addEventListener("pointermove", move);
+    document.addEventListener("pointerup", up);
+    document.addEventListener("pointercancel", up);
+  });
 }
 
 /* rAF stops while the page is hidden, so a spring started just before the user
@@ -3994,10 +4379,389 @@ document.addEventListener("visibilitychange", function(){
 });
 
 if(detailScrollEl) detailScrollEl.addEventListener("scroll", sheetOnScroll, {passive:true});
-if(detailEl) detailEl.addEventListener("pointerdown", sheetDragStart);
+attachSheetDrag({state:SH, el:detailEl, scroll:detailScrollEl, handle:detailHandleEl,
+                 paint:sheetPaint, close:function(){ hideDetail(); }});
 if(sheetScrimEl) sheetScrimEl.addEventListener("click", function(){
   if(SH.open && SH.expand < 0.04) hideDetail();
 });
+
+/* ── CALCULATOR SHEET ──
+   Second consumer of the shared engine. Everything structural is reused:
+   SHEET_T, sheetComposite, sheetSpring, attachSheetDrag, paintChromeStack. The
+   only bespoke part is which element the blur region tracks -- the search
+   field here, the tab pill on the detail sheet. */
+var calcSheetEl     = document.getElementById("screen-calc-sheet");
+var csScrollEl      = document.getElementById("cs-scroll");
+var csChromeBlurEl  = document.getElementById("cs-chrome-blur");
+var csChromeTintEl  = document.getElementById("cs-chrome-tint");
+var csBlurLayers    = document.querySelectorAll("#cs-chrome .blur-layer");
+var csHandleEl      = document.getElementById("cs-handle-zone");
+var csSearchInput   = document.getElementById("calcInput");
+var csCloseEl       = document.getElementById("cs-close");
+var csBackBtnEl     = document.getElementById("cs-back-btn");
+var csChromeRowEl   = document.getElementById("cs-chrome-row");
+var csDockEl        = document.querySelector("#screen-calc-sheet .cs-dock");
+var csPillEl        = document.querySelector("#screen-calc-sheet .cs-pill");
+var csProgressEl    = document.getElementById("cs-progress");
+var csPersistEl     = document.getElementById("cs-persist");
+
+/* Same trick as SHEET_DOCK_TOP: the dock's sticky offset doubles as the
+   condensed bar's height, so read it from CSS rather than repeating the 67. */
+var CS_DOCK_TOP = csDockEl ? (parseFloat(getComputedStyle(csDockEl).top) || 67) : 67;
+
+var CS = { open:false, enter:0, drag:0, expand:0, dragging:false,
+           cancelSpring:null, chromeStart:120, chromeEnd:190,
+           view:"search",
+           lastH:-1, lastTransform:"", lastRadius:"",
+           accent:{r:46,g:110,b:119} };
+
+function calcSheetHeight(){ return calcSheetEl.getBoundingClientRect().height || 1; }
+
+/* Distance from the top of the scrollable content down to the film title, the
+   calculator's copy of measureSheetChrome. Same rect-difference measurement:
+   offsetTop reports against the nearest positioned ancestor, not the scroller. */
+function measureCsChrome(){
+  var t = document.querySelector("#cs-film-head .detail-title");
+  if(!t || !csScrollEl){ CS.chromeStart=120; CS.chromeEnd=190; return; }
+  var top = (t.getBoundingClientRect().top - csScrollEl.getBoundingClientRect().top)
+          + csScrollEl.scrollTop;
+  CS.chromeStart = Math.max(20, top - SHEET_T.chromeLead);
+  CS.chromeEnd   = CS.chromeStart + SHEET_T.chromeRun;
+}
+
+function calcSheetPaint(){
+  if(!calcSheetEl) return;
+  sheetComposite(CS, calcSheetEl);
+
+  var scrollTop = csScrollEl ? csScrollEl.scrollTop : 0;
+  var op, H;
+
+  if(CS.view==="score"){
+    /* No chrome on the score view: there is no pinned bar to protect and the
+       card is centred well clear of the top. Held at the resting geometry so the
+       region has a sane height to animate back from. Note the search field is
+       display:none here, so the search branch's measurement of it would return
+       zeros and drive the region negative. */
+    op = 0;
+    H  = SHEET_T.chromeSolid + SHEET_T.chromeFall;
+  } else if(CS.view==="film"){
+    /* Film view runs sheetPaint's geometry verbatim, so the pill behaves exactly
+       as the detail sheet's tab dock does: the bar fades in as the title passes
+       beneath it, and the blur region grows to meet the dock as it pins. */
+    op = sheetEase(sheetTrack(scrollTop, CS.chromeStart, CS.chromeEnd));
+    var dockRect = csDockEl.getBoundingClientRect();
+    var scRect   = csScrollEl.getBoundingClientRect();
+    /* The gap still left between the dock and its pin point IS the stick
+       progress -- read live, never cached. */
+    var dockGap = (dockRect.top - scRect.top) - CS_DOCK_TOP;
+    var dockOp  = 1 - sheetClamp(dockGap / SHEET_T.dockLead, 0, 1);
+    /* Reaches the pill's bottom normally, and the progress bar's once rating has
+       begun -- before the first tap the bar is an unlit hairline with nothing
+       behind it worth hiding. chromeTail is deliberately not scaled: the
+       dissolve is a fixed length, only where it starts moves. */
+    var protectedBottom = csPillEl.getBoundingClientRect().bottom;
+    if(csProgressEl && csProgressEl.classList.contains("on")
+       && typeof raProgressCount==="function" && raProgressCount() > 0){
+      var barBottom = csProgressEl.getBoundingClientRect().bottom;
+      if(barBottom > protectedBottom) protectedBottom = barBottom;
+    }
+    var pillBot = CS_DOCK_TOP + (protectedBottom - dockRect.top);
+    /* Only the BOTTOM tracks the pill. The ramp's start stays put, so pinning
+       lengthens the dissolve instead of dragging a slab of full blur down. */
+    H = (SHEET_T.chromeSolid + SHEET_T.chromeFall)
+      + dockOp * ((pillBot + SHEET_T.chromeTail) - (SHEET_T.chromeSolid + SHEET_T.chromeFall));
+  } else {
+    /* Search view is unchanged: the region tracks the search field's pinned
+       bottom edge and engages from the first pixel of scroll. */
+    op = sheetEase(sheetTrack(scrollTop, 0, SHEET_T.chromeRun));
+    var barBot = (csSearchInput && csScrollEl)
+      ? (csSearchInput.getBoundingClientRect().bottom - csScrollEl.getBoundingClientRect().top)
+      : 104;
+    H = barBot + SHEET_T.chromeTail;
+  }
+
+  paintChromeStack({
+    blur:csChromeBlurEl, tint:csChromeTintEl, layers:csBlurLayers,
+    plateau:SHEET_T.chromeSolid, H:H,
+    op:op, accent:CS.accent, state:CS
+  });
+
+  if(csChromeRowEl) csChromeRowEl.style.opacity = (CS.view==="film" ? op : 0).toFixed(3);
+  if(csCloseEl) csCloseEl.style.opacity = "1";
+  sheetScrimEl.classList.toggle("tappable", CS.open && CS.expand < 0.04);
+  if(csHandleEl) csHandleEl.style.opacity = (1 - CS.expand).toFixed(2);
+}
+
+function calcSheetOnScroll(){
+  CS.expand = sheetClamp(csScrollEl.scrollTop / SHEET_T.expandTravel, 0, 1);
+  calcSheetPaint();
+}
+
+function showCalcSheet(){
+  if(!calcSheetEl) return;
+  calcSheetEl.style.pointerEvents="auto";
+  showHeader();
+  pushOverlayHistory();
+  /* Always opens on the search view. Without this the sheet would reopen still
+     showing the last film -- and, now that the film view hides the search field,
+     with no way to search for another one. */
+  csShowView("search");
+  if(csScrollEl) csScrollEl.scrollTop=0;
+  CS.open=true; CS.drag=0; CS.expand=0; CS.lastH=-1;
+  CS.enter=calcSheetHeight();
+  calcSheetPaint();
+  sheetSpring(CS, calcSheetPaint, CS.enter, 0, -900, 300, 30);
+}
+
+function hideCalcSheet(){
+  if(!calcSheetEl) return;
+  /* Torn down synchronously, for the same reason hideDetail is: if the spring
+     never runs a frame the scrim would stay armed over the whole app. */
+  CS.open=false;
+  calcSheetEl.style.pointerEvents="none";
+  calcSheetPaint();
+  sheetSpring(CS, calcSheetPaint, CS.enter, calcSheetHeight(), 0, 280, 32, function(){
+    CS.expand=0; CS.drag=0;
+    calcSheetPaint();
+  });
+}
+
+if(csScrollEl) csScrollEl.addEventListener("scroll", calcSheetOnScroll, {passive:true});
+attachSheetDrag({state:CS, el:calcSheetEl, scroll:csScrollEl, handle:csHandleEl,
+                 paint:calcSheetPaint, close:function(){ hideCalcSheet(); }});
+if(csCloseEl) csCloseEl.addEventListener("click", function(){ haptic(); hideCalcSheet(); });
+
+/* ── CALCULATOR SHEET: SEARCH -> FILM -> SCORE ── */
+var csSearchView = document.getElementById("cs-search-view");
+var csFilmView   = document.getElementById("cs-film-view");
+var csScoreView  = document.getElementById("cs-score-view");
+var csParkTimer  = null;
+var csResultsEl  = document.getElementById("cs-results");
+var csPromptEl   = document.getElementById("cs-prompt");
+var csRow        = null;   /* the film currently being rated in this sheet */
+
+/* The calculator sheet has its own --accent so its progress bar picks up the
+   film's colour, exactly as the detail sheet's does. */
+function csSetAccent(color){
+  if(!calcSheetEl || !color) return;
+  calcSheetEl.style.setProperty("--accent","rgb("+color.r+","+color.g+","+color.b+")");
+  var b=brightenAccent(color);
+  calcSheetEl.style.setProperty("--accent-bright","rgb("+b.r+","+b.g+","+b.b+")");
+}
+
+/* Three views now share the slot: search -> film -> score, each arriving as a
+   lateral push rather than a new pull-over. */
+function csShowView(which){
+  if(!csSearchView||!csFilmView) return;
+  var views={search:csSearchView, film:csFilmView, score:csScoreView};
+  /* Everything comes back into the layout FIRST -- the outgoing view has to be
+     rendered while it slides out, and the incoming one needs a frame at its
+     off-screen start position. */
+  Object.keys(views).forEach(function(k){
+    if(views[k]) views[k].classList.remove("parked");
+  });
+  /* Then force layout before flipping .on. A view coming back from display:none
+     has no previous computed style for the browser to interpolate from, so
+     without this read the push snaps into place instead of sliding. */
+  void calcSheetEl.offsetHeight;
+  Object.keys(views).forEach(function(k){
+    var v=views[k];
+    if(!v) return;
+    var on=(k===which);
+    v.classList.toggle("on", on);
+    v.setAttribute("aria-hidden", on?"false":"true");
+  });
+  /* ...and the ones that are not showing drop out of it again once the slide is
+     over, so they stop contributing to the scroller's height. Re-entrant: a
+     second switch mid-push cancels the first one's pending park. */
+  if(csParkTimer) clearTimeout(csParkTimer);
+  csParkTimer=setTimeout(function(){
+    csParkTimer=null;
+    Object.keys(views).forEach(function(k){
+      if(views[k] && k!==CS.view) views[k].classList.add("parked");
+    });
+    calcSheetPaint();
+  }, 420);
+  /* Drives the CSS side of the swap: hides the search field so the still can
+     reach the top of the sheet, shows the back button, and swaps the background
+     between the calculator's own wash and the film's accent. The score view
+     keeps the teal/orange wash, so only the film view gets .on-film. */
+  CS.view = which;
+  calcSheetEl.classList.toggle("on-film", which==="film");
+  calcSheetEl.classList.toggle("on-score", which==="score");
+  if(csScrollEl) csScrollEl.scrollTop=0;
+  CS.expand=0;
+  /* The two views have wildly different chrome geometry, so the cached region
+     height must not carry across. */
+  CS.lastH=-1;
+  calcSheetPaint();
+  /* The bar's trigger point depends on where the title lands, which is only
+     known once the view is actually in flow. */
+  requestAnimationFrame(function(){
+    measureCsChrome();
+    calcSheetPaint();
+  });
+}
+
+function csRefreshSearch(){
+  if(!csSearchInput||!csResultsEl) return;
+  var q=csSearchInput.value.trim();
+  if(csPromptEl) csPromptEl.style.display = q.length>=2 ? "none" : "";
+  if(q.length>=2){
+    renderSearchResults(csResultsEl, q);
+  } else {
+    searchToken++;
+    csResultsEl.innerHTML="";
+  }
+}
+
+/* Opens a film inside this sheet rather than pulling the detail sheet over the
+   top: within the calculator, picking a film is a lateral push. */
+function csOpenFilm(group){
+  csRow=group;
+  /* Same condensed bar the detail sheet fills on open, from the same function. */
+  fillChromeRow(group, "cs-chrome-art", "cs-chrome-title", "cs-chrome-score");
+  var head=document.getElementById("cs-film-head");
+  var info=document.getElementById("cs-film-info");
+  var still=document.getElementById("cs-backdrop");
+  setDetailBackdrop(null, still);
+  /* Same accent pipeline as the detail sheet: the logo's brand colour, falling
+     back to the poster. It drives --accent on this sheet, which the progress
+     bar's fill reads. */
+  getLogoAccent(group.tmdb_id).then(function(c){
+    if(c){ csSetAccent(c); return; }
+    if(group._poster) getDominantColor(group._poster,"w185").then(csSetAccent);
+  });
+
+  if(head){
+    var posterHTML = group._poster
+      ? "<img class='detail-poster' src='https://image.tmdb.org/t/p/w342"+group._poster+"' alt=''/>"
+      : "<div class='detail-poster' style='display:flex;align-items:center;justify-content:center;font-size:9px;color:rgba(255,255,255,0.4);text-align:center;padding:6px;'>"+(group.movie_title||"untitled")+"</div>";
+    /* The detail sheet's header, line for line. It is not only about matching
+       the information: .detail-header is bottom-aligned, so a title block with
+       fewer lines pushes the title DOWN, and the condensed bar's trigger is
+       measured off the title. A short block here would put the bar's fade at a
+       different scroll offset than the browse sheet's. */
+    var csRatedStr="";
+    if(group.latest){
+      var csD=new Date(group.latest);
+      csRatedStr=csD.toLocaleDateString(undefined,{year:"numeric",month:"short",day:"numeric"});
+    }
+    var csCount = group.entries ? group.entries.length : 0;
+    var csRatedLabel;
+    if(csCount===0)    csRatedLabel="not rated yet";
+    else if(csCount>1) csRatedLabel="last rated "+csRatedStr;
+    else               csRatedLabel="rated "+csRatedStr;
+    head.innerHTML=posterHTML+
+      "<div class='detail-title-block'>"+
+        "<div class='detail-title'>"+(group.movie_title||"untitled")+"</div>"+
+        "<div class='detail-meta-line' id='cs-release'>—</div>"+
+        "<div class='detail-meta-line'>"+csRatedLabel+"</div>"+
+        "<div class='detail-avg-inline' id='cs-avg-inline'>"+
+          "<span class='detail-avg-label'>avg</span>"+
+          "<span class='detail-avg-value' style='color:rgba(255,255,255,0.4)'>—</span>"+
+        "</div>"+
+      "</div>";
+    /* Same community average the detail sheet shows, into this sheet's own slot
+       and without the breakdown panel, which only the detail sheet has. */
+    loadAverage(group.tmdb_id, group.movie_title, {inlineId:"cs-avg-inline", panelId:null});
+  }
+  if(info){
+    info.innerHTML="<div class='detail-info-loading'>loading film details…</div>";
+    if(group.tmdb_id){
+      fetchMovieDetails(group.tmdb_id).then(function(d){
+        if(!d){ info.innerHTML=""; return; }
+        /* The 16:9 still, chosen by the same frame-grab picker the detail sheet
+           uses so both sheets land on the same image for a given film. */
+        pickBackdrop(group.tmdb_id, d.backdrop_path, group._poster).then(function(bp){
+          setDetailBackdrop(bp, still);
+        });
+        var rel=document.getElementById("cs-release");
+        if(rel && d.release_date){
+          var rd=new Date(d.release_date+"T00:00:00");
+          rel.textContent="released "+rd.toLocaleDateString(undefined,{year:"numeric",month:"short",day:"numeric"});
+        }
+        /* Same block as the detail sheet's, from the same function. */
+        info.innerHTML=filmInfoHTML(d);
+        /* The chips and synopsis change the content height above the dock, so
+           the bar's trigger has to be re-measured once they are in. */
+        measureCsChrome();
+        calcSheetPaint();
+      });
+    } else { info.innerHTML=""; }
+  }
+  /* Same form, same scoring, same progress bar -- only the host differs. */
+  buildRateAgainPanel(group, {
+    target: document.getElementById("cs-rate-panel"),
+    onSubmit: csSubmitScore
+  });
+  updateRateProgress();
+  csShowView("film");
+}
+
+/* The result stays inside this sheet: it is a third lateral push, not a
+   dismissal followed by the separate score screen springing up behind it. */
+function csSubmitScore(score, color, row){
+  fillScoreCard(csScoreView, score, color, row.movie_title);
+  raSaveRating(row, score);
+  csShowView("score");
+  /* The card's glow and particles are sized against its rendered box, so they
+     go on after the push has put it in flow. */
+  requestAnimationFrame(function(){
+    applyScoreEffects(score, color, csScoreView);
+  });
+}
+
+/* Back steps one view left rather than always returning to search, so from the
+   result it lands on the form that produced it. */
+if(csBackBtnEl) csBackBtnEl.addEventListener("click", function(){
+  haptic();
+  csShowView(CS.view==="score" ? "film" : "search");
+});
+
+(function(){
+  var edit=document.getElementById("cs-score-edit");
+  var again=document.getElementById("cs-score-again");
+  /* Edit keeps the answers: the form is untouched, we just slide back to it. */
+  if(edit) edit.addEventListener("click", function(){ haptic(); csShowView("film"); });
+  /* Rate Another starts clean, back at the search field. */
+  if(again) again.addEventListener("click", function(){
+    haptic();
+    csRow=null;
+    if(csSearchInput) csSearchInput.value="";
+    csRefreshSearch();
+    csShowView("search");
+    requestAnimationFrame(function(){
+      if(csSearchInput) csSearchInput.focus({preventScroll:true});
+    });
+  });
+})();
+
+/* Clear button on the sheet's own search field, mirroring the home one. */
+(function(){
+  var wrap=document.getElementById("csSearchWrap");
+  var clr=document.getElementById("csSearchClear");
+  if(!csSearchInput||!wrap) return;
+  function sync(){ wrap.classList.toggle("has-text", csSearchInput.value.length>0); }
+  var debounce=null;
+  csSearchInput.addEventListener("input", function(){
+    sync();
+    clearTimeout(debounce);
+    debounce=setTimeout(csRefreshSearch, 250);
+  });
+  csSearchInput.addEventListener("keydown", function(e){
+    if(e.key==="Enter"){ e.preventDefault(); clearTimeout(debounce); csRefreshSearch(); csSearchInput.blur(); }
+  });
+  if(clr) clr.addEventListener("click", function(){
+    haptic();
+    clearTimeout(debounce);
+    csSearchInput.value="";
+    sync();
+    csRefreshSearch();
+    csSearchInput.focus({preventScroll:true});
+  });
+  sync();
+})();
 
 /* ── HOME SEARCH DOCK ──
    The same stack and the same SHEET_T numbers as the sheet's condensed bar.
@@ -4046,7 +4810,7 @@ function showDetail(){
     measureSheetChrome();
     sheetPaint();
   });
-  sheetSpring(SH.enter, 0, -900, 300, 30);
+  sheetSpring(SH, sheetPaint, SH.enter, 0, -900, 300, 30);
 }
 
 function hideDetail(){
@@ -4065,7 +4829,7 @@ function hideDetail(){
   SH.open=false;
   detailEl.style.pointerEvents="none";
   sheetPaint();
-  sheetSpring(SH.enter, sheetHeight(), 0, 280, 32, function(){
+  sheetSpring(SH, sheetPaint, SH.enter, sheetHeight(), 0, 280, 32, function(){
     SH.expand=0; SH.drag=0;
     sheetPaint();
     /* Only refresh if we actually stayed on that base screen. Refresh QUIETLY:
@@ -4337,10 +5101,22 @@ function scoreColor(s){
   return"rgb("+r+","+g+","+b+")";
 }
 
-function clearScoreEffects(){
-  var layer=document.getElementById("score-particle-layer");
+/* The score card now exists in two places: the legacy full screen and the
+   calculator sheet's own score view. All three effect functions therefore take
+   the container to work inside and address the card by CLASS -- a second copy
+   with the same ids would silently steer every getElementById to whichever came
+   first in the document, which is the duplicate-id trap the rate form already
+   hit. Default is the legacy screen, so the old flow's calls are unchanged. */
+function scoreRootOf(root){
+  return root || document.getElementById("screen-score");
+}
+
+function clearScoreEffects(root){
+  var r=scoreRootOf(root);
+  if(!r) return;
+  var layer=r.querySelector(".score-particle-layer");
   if(layer) layer.innerHTML="";
-  var card=document.getElementById("score-card");
+  var card=r.querySelector(".score-card");
   if(card){
     card.style.animation="";
     card.style.boxShadow="";
@@ -4349,9 +5125,12 @@ function clearScoreEffects(){
   }
 }
 
-function applyScoreEffects(score, color){
-  var card=document.getElementById("score-card");
-  var layer=document.getElementById("score-particle-layer");
+function applyScoreEffects(score, color, root){
+  var r=scoreRootOf(root);
+  if(!r) return;
+  var card=r.querySelector(".score-card");
+  var layer=r.querySelector(".score-particle-layer");
+  if(!card||!layer) return;
   layer.innerHTML="";
 
   var cm=color.match(/rgb\((\d+),(\d+),(\d+)\)/);
@@ -4432,8 +5211,11 @@ function applyScoreEffects(score, color){
   }
 }
 
-function renderResultStars(score,color){
-  var wrap=document.getElementById("result-stars-row");
+function renderResultStars(score,color,root){
+  var r=scoreRootOf(root);
+  if(!r) return;
+  var wrap=r.querySelector(".result-stars-row");
+  if(!wrap) return;
   wrap.innerHTML="";
   for(var i=1;i<=5;i++){
     var star=document.createElement("div");
@@ -4445,18 +5227,29 @@ function renderResultStars(score,color){
   }
 }
 
+/* Everything the score card displays, for either copy of it. */
+function fillScoreCard(root, score, color, titleText){
+  var r=scoreRootOf(root);
+  if(!r) return;
+  clearScoreEffects(r);
+  var name=r.querySelector(".score-film-name");
+  if(name) name.textContent="Ratr Score: "+String(titleText||"").toUpperCase();
+  var num=r.querySelector(".score-number");
+  if(num){ num.textContent=score.toFixed(2); num.style.color=color; }
+  var lbl=r.querySelector(".score-label-txt");
+  if(lbl){ lbl.textContent=scoreLabel(score); lbl.style.color=color; }
+  renderResultStars(score,color,r);
+  /* Inactive marks are a light grey now, not #bbb: the card is translucent glass
+     over the sheet's own gradient, so a mid-grey tuned for white reads as mud. */
+  r.querySelectorAll(".score-scale .scale-item").forEach(function(el){
+    el.style.color=Math.abs(score-parseFloat(el.getAttribute("data-v")))<0.6
+      ? color : "rgba(255,255,255,0.42)";
+  });
+}
+
 function displayScore(){
   var score=calcScore(), color=scoreColor(score);
-  clearScoreEffects();
-  document.getElementById("score-film-label").textContent="Ratr Score: "+movieTitle.toUpperCase();
-  document.getElementById("score-number").textContent=score.toFixed(2);
-  document.getElementById("score-number").style.color=color;
-  document.getElementById("score-label-txt").textContent=scoreLabel(score);
-  document.getElementById("score-label-txt").style.color=color;
-  renderResultStars(score,color);
-  document.querySelectorAll("#score-scale .scale-item").forEach(function(el){
-    el.style.color=Math.abs(score-parseFloat(el.getAttribute("data-v")))<0.6?color:"#bbb";
-  });
+  fillScoreCard(null, score, color, movieTitle);
   saveRating(score);
   showScore(function(){
     applyScoreEffects(score, color);
@@ -4571,7 +5364,11 @@ document.getElementById("footer-browse").addEventListener("click",function(){
 document.getElementById("footer-calculator").addEventListener("click",function(){
   haptic();
   dismissOverlays();
-  enterCalculatorFresh();
+  /* The calculator is a pull-over sheet now. enterCalculatorFresh() and the
+     #screen-movie / #screen-calc flow are left intact and still reachable from
+     the intro and skip-auth paths, so nothing is stranded while the sheet's own
+     rating flow is built out. */
+  showCalcSheet();
 });
 
 
@@ -5074,6 +5871,11 @@ function renderTitleResults(content, results, query){
 /* Open a browsed movie — pulls the user's own entries for it, if any */
 function openBrowsedMovie(tmdbIdVal, title, year, posterPath){
   var displayTitle = title + (year?" ("+year+")":"");
+  /* Inside the calculator sheet a result pushes laterally to the film view
+     instead of pulling the detail sheet over the top. Same card, same handler,
+     and now the same lookup below -- only the destination differs, so a film
+     carries identical information into either sheet. */
+  var openIn = (typeof CS!=="undefined" && CS && CS.open) ? csOpenFilm : openDetail;
   var group={
     key:"t"+tmdbIdVal,
     tmdb_id:tmdbIdVal,
@@ -5105,10 +5907,10 @@ function openBrowsedMovie(tmdbIdVal, title, year, posterPath){
         group.movie_title=rows[0].movie_title||displayTitle;
         recomputeGroupAverages(group);
       }
-      openDetail(group);
-    }).catch(function(){ openDetail(group); });
+      openIn(group);
+    }).catch(function(){ openIn(group); });
   } else {
-    openDetail(group);
+    openIn(group);
   }
 }
 
