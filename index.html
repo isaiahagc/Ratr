@@ -1533,6 +1533,11 @@ input.slider-input::-moz-range-track{background:transparent;height:0;}
   display:flex;flex-direction:column;align-items:center;
   text-align:center;padding:24px 24px 100px;gap:0;width:100%;max-width:420px;
 }
+/* Same card, but inline in the browse sheet's rate panel rather than alone on a
+   screen: .score-inner's 24/100 padding is sized to centre a card in a whole
+   viewport, and inside a panel it only needs a little air. Id-scoped so it beats
+   .score-inner regardless of source order. */
+#screen-detail .ra-score-inner{padding:18px 0 4px;margin:0 auto;}
 .score-film-name{
   font-size:10px;color:rgba(255,255,255,0.75);margin-bottom:20px;
   font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;letter-spacing:1.5px;
@@ -2087,22 +2092,11 @@ input.slider-input::-moz-range-track{background:transparent;height:0;}
              card's internals -- #screen-score still carries those, and a second
              set would hijack every getElementById. -->
         <div class="cs-view cs-view-next" id="cs-score-view" aria-hidden="true">
+          <!-- The film name and the card itself are inserted here at startup by
+               scoreCardHTML(), which the browse sheet's inline result also uses,
+               so the two cannot drift. Only the buttons are static: they are
+               specific to this sheet and their listeners bind once. -->
           <div class="score-inner cs-score-inner">
-            <div class="score-film-name"></div>
-            <div class="score-card">
-              <div class="score-particle-layer"></div>
-              <div class="score-number">&mdash;</div>
-              <div class="score-label-txt"></div>
-              <div class="result-stars-row"></div>
-              <div class="score-scale">
-                <div class="scale-item" data-v="0"><div class="sv">0</div><div>poor</div></div>
-                <div class="scale-item" data-v="1"><div class="sv">1</div><div>bad</div></div>
-                <div class="scale-item" data-v="2"><div class="sv">2</div><div>meh</div></div>
-                <div class="scale-item" data-v="3"><div class="sv">3</div><div>ok</div></div>
-                <div class="scale-item" data-v="4"><div class="sv">4</div><div>great</div></div>
-                <div class="scale-item" data-v="5"><div class="sv">5</div><div>&#10022;</div></div>
-              </div>
-            </div>
             <div class="score-actions">
               <button class="btn btn-ghost" id="cs-score-edit" type="button">Edit Ratings</button>
               <button class="btn btn-solid" id="cs-score-again" type="button">Rate Another</button>
@@ -3678,12 +3672,22 @@ function buildRateAgainPanel(row, opts){
     var score=raCalcScore();
     var color=scoreColor(score);
     if(opts.onSubmit){ opts.onSubmit(score, color, row); return; }
-    p.querySelector("#ra-result").innerHTML=
-      "<div class='detail-final' style='margin:20px 0;'>"+
-        "<div class='detail-final-num' style='color:"+color+"'>"+score.toFixed(2)+"</div>"+
-        "<div class='detail-final-label' style='color:"+color+"'>"+scoreLabel(score)+"</div>"+
-      "</div>";
+    /* Same card the calculator sheet shows, from the same markup and the same
+       fill: milky glass, the big italic number, the stars, the 0-5 scale, and
+       the glow and particles keyed to the score. It used to be a bare number and
+       label in a white box, which read as a form receipt rather than a result. */
+    var res=p.querySelector("#ra-result");
+    res.innerHTML="<div class='score-inner ra-score-inner'>"+scoreCardHTML()+"</div>";
+    fillScoreCard(res, score, color, row.movie_title);
     raSaveRating(row, score);
+    /* Effects go on after the card is in flow -- the glow and the particle field
+       are sized against its rendered box. */
+    requestAnimationFrame(function(){
+      applyScoreEffects(score, color, res);
+      /* The card changes the panel's height, which moves the dock, so the blur
+         region's geometry has to be recomputed. */
+      if(typeof SH!=="undefined" && SH && SH.open) sheetPaint();
+    });
   });
 }
 
@@ -4542,6 +4546,14 @@ var csSearchView = document.getElementById("cs-search-view");
 var csFilmView   = document.getElementById("cs-film-view");
 var csScoreView  = document.getElementById("cs-score-view");
 var csParkTimer  = null;
+/* Built from the shared markup rather than written out in the HTML, so this
+   sheet's card and the browse sheet's inline result are the same thing. Inserted
+   before .score-actions, and NOT wrapped: .score-inner is a column flex and the
+   name and card have to stay its direct children to lay out. */
+(function(){
+  var host = csScoreView && csScoreView.querySelector(".score-inner");
+  if(host) host.insertAdjacentHTML("afterbegin", scoreCardHTML());
+})();
 var csResultsEl  = document.getElementById("cs-results");
 var csPromptEl   = document.getElementById("cs-prompt");
 var csRow        = null;   /* the film currently being rated in this sheet */
@@ -5242,6 +5254,29 @@ function renderResultStars(score,color,root){
     star.querySelector(".result-star-fill").style.width=score>=i?"100%":score>=i-0.5?"50%":"0%";
     wrap.appendChild(star);
   }
+}
+
+/* The score card's markup, in one place. The calculator sheet's score view and
+   the browse sheet's inline result are both built from this, so the two cannot
+   drift in layout the way they would as two hand-written copies. Classes only,
+   never ids: #screen-score still owns those, and a second set would capture
+   every getElementById that goes looking for them. */
+function scoreCardHTML(){
+  var scale="";
+  [["0","poor"],["1","bad"],["2","meh"],["3","ok"],["4","great"],["5","✦"]]
+    .forEach(function(pair){
+      scale+="<div class='scale-item' data-v='"+pair[0]+"'>"+
+               "<div class='sv'>"+pair[0]+"</div><div>"+pair[1]+"</div>"+
+             "</div>";
+    });
+  return "<div class='score-film-name'></div>"+
+    "<div class='score-card'>"+
+      "<div class='score-particle-layer'></div>"+
+      "<div class='score-number'>—</div>"+
+      "<div class='score-label-txt'></div>"+
+      "<div class='result-stars-row'></div>"+
+      "<div class='score-scale'>"+scale+"</div>"+
+    "</div>";
 }
 
 /* Everything the score card displays, for either copy of it. */
