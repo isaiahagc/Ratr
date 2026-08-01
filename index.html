@@ -648,7 +648,13 @@ html,body{width:100%;height:100%;overflow:hidden;background:#0B2054;font-family:
 /* Back sits beside the close X as a second glass circle, same material and same
    38px round, so the two read as one pair of controls rather than a button and a
    link. 62px clears the X (16 + 38 = 54) with an 8px gap. */
-#cs-back-btn{left:62px;}
+/* Opposite corner from the close X. .detail-close pins left:16px, so that has to
+   be released explicitly before the right edge takes effect. */
+#cs-back-btn{left:auto;right:16px;}
+/* ...which is where the condensed bar's score would sit. The calculator does not
+   show it at all: you are here to produce a score, not to be told the one you
+   already have. That also leaves the right side to the button alone. */
+#screen-calc-sheet .detail-chrome-score{display:none;}
 /* Back belongs to every view except the search one, where there is nothing to
    go back to. */
 #screen-calc-sheet:not(.on-film):not(.on-score) #cs-back-btn{display:none;}
@@ -692,9 +698,9 @@ html,body{width:100%;height:100%;overflow:hidden;background:#0B2054;font-family:
    its own blur rather than behind it. */
 .cs-dock{position:sticky;top:67px;z-index:6;padding:20px 20px 12px;}
 
-/* Two controls on the left instead of one, so the centred title needs a wider
-   keep-out than the detail sheet's 150px or it runs under the back button. */
-#screen-calc-sheet .detail-chrome-mid{max-width:calc(100% - 208px);}
+/* No override of .detail-chrome-mid's width here on purpose: with the score
+   hidden this sheet has one 38px button per side, which the detail sheet's own
+   150px keep-out already clears. */
 
 /* Background swap between the two views. The search view keeps the calculator's
    own teal/orange wash; the film view takes the film's accent, the same pair of
@@ -5079,20 +5085,24 @@ function scoreLabel(s){
 function scoreColor(s){
   var r,g,b;
   /* Red zone: 0–1.5, peak fire-truck red at 1.5 */
-  /* Orange/gold midpoint: ~2.5 */
+  /* Bright yellow midpoint: ~2.5 -- rgb(255,214,10). Was goldenrod
+     rgb(218,165,32), which is only ~76% bright and heavily desaturated by its
+     blue channel, so mid scores read as mustard rather than as the peak of the
+     ramp. Both branches below meet at this value; changing one alone would put
+     a visible step in the middle of the fade. */
   /* Green zone: peaks at 4.0, holds through 5 */
   if(s<=1.5){
     /* deep red → fire truck red */
     var t=s/1.5;
     r=Math.round(180+(220-180)*t); g=Math.round(20+(38-20)*t); b=Math.round(20+(38-20)*t);
   } else if(s<=2.5){
-    /* fire truck red → orange-gold */
+    /* fire truck red → bright yellow */
     var t=(s-1.5)/1.0;
-    r=Math.round(220+(218-220)*t); g=Math.round(38+(165-38)*t); b=Math.round(38+(32-38)*t);
+    r=Math.round(220+(255-220)*t); g=Math.round(38+(214-38)*t); b=Math.round(38+(10-38)*t);
   } else if(s<=4.0){
-    /* orange-gold → peak green */
+    /* bright yellow → peak green */
     var t=(s-2.5)/1.5;
-    r=Math.round(218+(56-218)*t); g=Math.round(165+(187-165)*t); b=Math.round(32+(23-32)*t);
+    r=Math.round(255+(56-255)*t); g=Math.round(214+(187-214)*t); b=Math.round(10+(23-10)*t);
   } else {
     /* peak green holds, slight teal shift toward 5 */
     var t=(s-4.0)/1.0;
@@ -5165,9 +5175,15 @@ function applyScoreEffects(score, color, root){
       var dx=Math.round((Math.random()-0.5)*50);
       var dy=Math.round(-60-Math.random()*100);
       var dur=(2.4+Math.random()*2.8).toFixed(1);
-      var delay=(Math.random()*4).toFixed(2);
+      /* NEGATIVE, and a fraction of this particle's own duration. A positive
+         delay leaves the element parked at its start frame -- visible, full
+         opacity, untransformed -- for however long the delay lasts, so the whole
+         field sat frozen and then lurched into motion. Seeking backwards instead
+         means every particle is already mid-flight on the first frame, and
+         spreading the offset across one full cycle keeps them desynchronised. */
+      var delay=(Math.random()*parseFloat(dur)).toFixed(2);
       var opacity=(0.3+Math.random()*0.45).toFixed(2);
-      p.style.cssText="width:"+size+"px;height:"+size+"px;background:rgba("+R+","+G+","+B+","+opacity+");left:"+startX+"px;top:"+startY+"px;--p-dy:"+dy+"px;--p-dx:"+dx+"px;--p-dur:"+dur+"s;--p-delay:"+delay+"s;--p-opacity:"+opacity+";";
+      p.style.cssText="width:"+size+"px;height:"+size+"px;background:rgba("+R+","+G+","+B+","+opacity+");left:"+startX+"px;top:"+startY+"px;--p-dy:"+dy+"px;--p-dx:"+dx+"px;--p-dur:"+dur+"s;--p-delay:-"+delay+"s;--p-opacity:"+opacity+";";
       layer.appendChild(p);
     }
   }
@@ -5201,11 +5217,12 @@ function applyScoreEffects(score, color, root){
       var dx=Math.round((Math.random()-0.5)*50);
       var dy=Math.round(60+Math.random()*100);
       var dur=(2.4+Math.random()*2.8).toFixed(1);
-      var delay=(Math.random()*4).toFixed(2);
+      /* Negative, for the same reason as the bubbles above. */
+      var delay=(Math.random()*parseFloat(dur)).toFixed(2);
       var opacity=(0.3+Math.random()*0.45).toFixed(2);
       var useOrange=Math.random()>0.5;
       var eColor=useOrange?"rgba(240,80,20,"+opacity+")":"rgba("+R+","+G+","+B+","+opacity+")";
-      e.style.cssText="width:"+size+"px;height:"+size+"px;background:"+eColor+";left:"+startX+"px;top:"+startY+"px;--p-dy:"+dy+"px;--p-dx:"+dx+"px;--p-dur:"+dur+"s;--p-delay:"+delay+"s;--p-opacity:"+opacity+";";
+      e.style.cssText="width:"+size+"px;height:"+size+"px;background:"+eColor+";left:"+startX+"px;top:"+startY+"px;--p-dy:"+dy+"px;--p-dx:"+dx+"px;--p-dur:"+dur+"s;--p-delay:-"+delay+"s;--p-opacity:"+opacity+";";
       layer.appendChild(e);
     }
   }
